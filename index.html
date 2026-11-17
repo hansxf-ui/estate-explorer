@@ -10,14 +10,14 @@
   <meta property="og:title" content="Estate Explorer — 3D Life Simulation" />
   <meta property="og:description" content="Explore a modern mansion, meet residents, work and build your daily life in this browser-playable 3D world." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Estate Explorer — Prototype 40.8</title>
+  <title>Estate Explorer — Prototype 40.9</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <main id="game" class="prestart">
     <div id="loading" class="loading"><span class="loader"></span><span>MENYIAPKAN DUNIA</span></div>
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.8</small></div></div>
+      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.9</small></div></div>
       <div class="location"><i></i><span id="location-label">FRONT GARDEN</span></div>
       <div class="life-actions">
         <span class="wallet"><b id="wallet-value">$650</b><small>CASH</small></span>
@@ -121,7 +121,7 @@
     </section>
     <section class="life-panel settings-panel hidden" id="settings-panel">
       <div class="panel-head"><div><span class="panel-eyebrow">GAME PREFERENCES</span><h3>Settings</h3></div><button class="panel-close" data-close="settings-panel" aria-label="Close">×</button></div>
-      <div class="settings-section"><div class="settings-label"><b>Graphics quality</b><small>Sesuaikan performa perangkat.</small></div><div class="quality-options"><button type="button" data-quality="low">LOW</button><button type="button" data-quality="balanced">BALANCED</button><button type="button" data-quality="high">HIGH</button></div></div>
+      <div class="settings-section graphics-quality-section"><div class="settings-label"><b>Graphics quality</b><small>iPad menggunakan mode Performance secara otomatis. Adaptive resolution akan turun bila frame rate melemah.</small></div><div class="quality-options"><button type="button" data-quality="performance">PERFORM</button><button type="button" data-quality="low">LOW</button><button type="button" data-quality="balanced">BALANCED</button><button type="button" data-quality="high">HIGH</button></div></div>
       <div class="settings-section"><div class="settings-label"><b>Camera sensitivity</b><small>Atur kecepatan putaran kamera saat drag.</small></div><div class="quality-options"><button type="button" data-camera-sensitivity="low">LOW</button><button type="button" data-camera-sensitivity="normal">NORMAL</button><button type="button" data-camera-sensitivity="high">HIGH</button></div></div>
       <div class="settings-row"><div><b>Invert vertical camera</b><small>Balik arah geser atas dan bawah.</small></div><button id="camera-invert-toggle" class="settings-toggle" type="button">OFF</button></div>
       <div class="settings-row"><div><b>Automatic save</b><small id="autosave-status">Progress otomatis disimpan setiap 45 detik.</small></div><button id="autosave-toggle" class="settings-toggle" type="button">ON</button></div>
@@ -318,10 +318,10 @@
         <h2>Estate<br><em>Explorer</em></h2>
         <p>Bangun kehidupanmu. Cari pekerjaan, kumpulkan uang, dan buat rumah ini terasa milikmu.</p>
         <button id="start-btn">MASUK KE DUNIA <span>↗</span></button>
-        <small>PROTOTYPE 40.8 · LIFE SIMULATION</small>
+        <small>PROTOTYPE 40.9 · LIFE SIMULATION</small>
       </div>
     </div>
-    <div class="version">BUILD 0.40.8 <span>•</span> THREE.JS</div>
+    <div class="version">BUILD 0.40.9 <span>•</span> THREE.JS</div>
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>

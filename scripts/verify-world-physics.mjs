@@ -131,12 +131,12 @@ check('World-object debug data also reports real scene and renderer draw statist
 });
 check('Prototype 39 package metadata, release notes and V18 save schema are synchronized', () => {
   assert.match(source, /version: 18/);
-  assert.equal(pkg.version, '0.40.8');
+  assert.equal(pkg.version, '0.40.9');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:world/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.8'));
+  assert.ok(html.includes('BUILD 0.40.9'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

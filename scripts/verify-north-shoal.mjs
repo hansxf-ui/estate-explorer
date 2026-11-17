@@ -16,7 +16,7 @@ check('The island has a timber landing, palm grove, beach shelter and illuminate
   assert.match(source,/box\(northShoal,-6\.55,0\.28,0,4\.4,0\.18,2\.35/);
   assert.match(source,/for\(const \[px,pz,scale\] of \[\[-2\.7,1\.0,1\],\[1\.1,3\.1,0\.82\]\]\)/);
   assert.match(source,/const shoalShelter=group\(northShoal/);
-  assert.match(source,/const shoalBeaconLight=new THREE\.PointLight/);
+  assert.match(source,/const shoalBeaconLight=createManagedPointLight/);
 });
 check('The boat is blocked by the island shoreline but can enter the designated dock lane',()=>{
   assert.match(source,/function canDockAtNorthShoal\(/);
@@ -58,9 +58,9 @@ check('Runtime diagnostics identify the new coastal destination and its dock sta
   assert.match(source,/islandDocked: boatDockedAtIsland, dockApproach: canDockAtNorthShoal\(\)/);
   assert.match(source,/playerArea: Math\.hypot\(player\.position\.x-44,player\.position\.z-218\)<7\.0 \? 'north-shoal-island'/);
 });
-check('The North Shoal 0.39.6 milestone and save structure remain intact under the 0.40.8 release',()=>{
-  assert.equal(pkg.version,'0.40.8');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.8'));assert.match(readme,/Prototype 39\.6 — North Shoal Island & Coastal Exploration/);
+check('The North Shoal 0.39.6 milestone and save structure remain intact under the 0.40.9 release',()=>{
+  assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.9'));assert.match(readme,/Prototype 39\.6 — North Shoal Island & Coastal Exploration/);
   assert.match(pkg.scripts['test:game'],/test:shoal/);
 });
 console.log(`\n${passed} North Shoal Island and coastal navigation checks passed.`);

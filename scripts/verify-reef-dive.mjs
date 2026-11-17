@@ -77,7 +77,7 @@ check('Saving during a dive returns the next session to the island shore without
   assert.match(source,/savePlayerY = saveWhilePiloting \? 0 : saveWhileDiving \|\| playerSeated && activeSeat \? getGroundHeight\(savePlayerX, savePlayerZ\)/);
   assert.match(source,/divingState\.active=false;divingState\.oxygen=divingState\.maxOxygen/);
 });
-check('The underwater view, HUD, keyboard/touch hints, diagnostics, docs and 0.40.8 test command are included',()=>{
+check('The underwater view, HUD, keyboard/touch hints, diagnostics, docs and 0.40.9 test command are included',()=>{
   assert.match(source,/scene\.background\.setHex\(0x082e3e\)/);
   assert.match(source,/scene\.fog\.near=4;scene\.fog\.far=37/);
   assert.ok(html.includes('id="underwater-overlay"'));
@@ -86,7 +86,7 @@ check('The underwater view, HUD, keyboard/touch hints, diagnostics, docs and 0.4
   assert.match(css,/\.dive-hud/);assert.match(css,/\.underwater-overlay\.active/);
   assert.match(source,/diving: \{ active:divingState\.active, oxygen:divingState\.oxygen/);
   assert.match(readme,/Prototype 39\.9 — North Shoal Reef Diving & Marine Discoveries/);
-  assert.equal(pkg.version,'0.40.8');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.8'));assert.match(pkg.scripts['test:game'],/test:dive/);
+  assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.9'));assert.match(pkg.scripts['test:game'],/test:dive/);
 });
 console.log(`\n${passed} Reef Diving and Marine Discovery checks passed.`);

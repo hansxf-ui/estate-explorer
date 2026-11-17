@@ -60,19 +60,39 @@ const districtStoreTitle = document.querySelector('#district-store-title');
 const districtStoreCopy = document.querySelector('#district-store-copy');
 const districtProductList = document.querySelector('#district-product-list');
 const locationLabel = document.querySelector('#location-label');
-let graphicsQuality = 'balanced';
+// iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
+const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
+let hasManualGraphicsPreference = false;
+let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
 try {
-  graphicsQuality = localStorage.getItem('estate-graphics-quality') || 'balanced';
+  const savedQuality = localStorage.getItem('estate-graphics-quality');
+  hasManualGraphicsPreference = localStorage.getItem('estate-graphics-quality-manual') === 'true';
+  graphicsQuality = isTouchDevice && !hasManualGraphicsPreference ? 'performance' : (savedQuality || graphicsQuality);
   autoSaveEnabled = localStorage.getItem('estate-auto-save') !== 'false';
 } catch (error) {
   console.warn('Browser storage is unavailable; settings will be temporary.', error);
 }
 const graphicsPresets = {
-  low: { pixelRatio: 1, shadows: false, shadowMap: 512 },
-  balanced: { pixelRatio: 1.35, shadows: true, shadowMap: 1024 },
-  high: { pixelRatio: 1.7, shadows: true, shadowMap: 2048 }
+  performance: { pixelRatio: 0.95, shadows: false, shadowMap: 512, dynamicLights: false },
+  low: { pixelRatio: 0.8, shadows: false, shadowMap: 512, dynamicLights: false },
+  balanced: { pixelRatio: 1.35, shadows: true, shadowMap: 1024, dynamicLights: true },
+  high: { pixelRatio: 1.7, shadows: true, shadowMap: 2048, dynamicLights: true }
 };
+let adaptiveRenderScale = 1;
+let adaptiveFrameTime = 16.7;
+let lastAnimationTimestamp = 0;
+let lastAdaptiveResolutionUpdate = 0;
+function effectiveRenderPixelRatio() {
+  const preset = graphicsPresets[graphicsQuality] || graphicsPresets.performance;
+  return Math.max(0.65, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
+}
+function updateRendererResolution() {
+  if (!renderer) return;
+  renderer.setPixelRatio(effectiveRenderPixelRatio());
+  renderer.setSize(innerWidth, innerHeight, false);
+}
 
 // Camera preferences must exist before the initial graphics setup refreshes Settings.
 const cameraSensitivityOptions = { low: 0.68, normal: 1, high: 1.42 };
@@ -88,6 +108,11 @@ let autoSaveElapsed = 0;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9bc4d0);
 scene.fog = new THREE.Fog(0x9bc4d0, 70, 270);
+const daySkyColor = new THREE.Color(0x9bc4d0);
+const nightSkyColor = new THREE.Color(0x142333);
+const nightSunColor = new THREE.Color(0x8da9dc);
+const daySunColor = new THREE.Color(0xffe4bd);
+const blendedSkyColor = new THREE.Color();
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 260);
 camera.position.set(0, 5, 34);
@@ -140,7 +165,7 @@ const startupWatchdog = setTimeout(() => {
   if (!startupReady && !startupFailed) showStartupError('Game terlalu lama dimuat', 'Persiapan dunia 3D belum selesai. Browser mungkin kehabisan memori atau tidak menyediakan WebGL.');
 }, 18000);
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: !isTouchDevice, powerPreference: 'high-performance' });
 } catch (primaryError) {
   console.warn('High-performance WebGL initialization failed; retrying with a low-power renderer.', primaryError);
   try {
@@ -154,7 +179,7 @@ try {
     throw fallbackError;
   }
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, graphicsPresets[graphicsQuality]?.pixelRatio || 1.35));
+renderer.setPixelRatio(effectiveRenderPixelRatio());
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -180,15 +205,30 @@ sun.shadow.camera.top = 75;
 sun.shadow.camera.bottom = -75;
 sun.shadow.bias = -0.00025;
 scene.add(sun);
+const managedPointLights = new Set();
+function createManagedPointLight(color, intensity, distance, decay = 2) {
+  const light = new THREE.PointLight(color, intensity, distance, decay);
+  light.visible = !!graphicsPresets[graphicsQuality]?.dynamicLights;
+  managedPointLights.add(light);
+  return light;
+}
 function applyGraphicsQuality(level, notify = false) {
-  graphicsQuality = graphicsPresets[level] ? level : 'balanced';
+  if (isTouchDevice && !hasManualGraphicsPreference && !notify) level = rendererFallbackActive ? 'low' : 'performance';
+  graphicsQuality = graphicsPresets[level] ? level : (isTouchDevice ? 'performance' : 'balanced');
+  if (notify) hasManualGraphicsPreference = true;
   const preset = graphicsPresets[graphicsQuality];
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, preset.pixelRatio));
+  adaptiveRenderScale = 1;
+  updateRendererResolution();
   renderer.shadowMap.enabled = preset.shadows;
+  sun.castShadow = preset.shadows;
+  managedPointLights.forEach(light => { light.visible = preset.dynamicLights; });
   sun.shadow.mapSize.set(preset.shadowMap, preset.shadowMap);
   sun.shadow.needsUpdate = true;
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
-  try { localStorage.setItem('estate-graphics-quality', graphicsQuality); } catch {}
+  try {
+    localStorage.setItem('estate-graphics-quality', graphicsQuality);
+    if (notify) localStorage.setItem('estate-graphics-quality-manual', 'true');
+  } catch {}
   if (typeof updateSettingsPanel === 'function') updateSettingsPanel();
   if (notify) showToast('GRAPHICS: ' + graphicsQuality.toUpperCase());
 }
@@ -204,7 +244,11 @@ const concreteMat = mat(0xb8b5a8, 0.95);
 const wallMat = mat(0xe4e0d3, 0.85);
 const darkWallMat = mat(0x626f69, 0.9);
 const trimMat = mat(0x323d3a, 0.45, 0.25);
-const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x8bbac0, roughness: 0.16, metalness: 0.15, transparent: true, opacity: 0.48, transmission: 0.15 });
+function createSurfaceMaterial(parameters) {
+  if (isTouchDevice) { const { transmission, ...standardParameters } = parameters; return new THREE.MeshStandardMaterial(standardParameters); }
+  return new THREE.MeshPhysicalMaterial(parameters);
+}
+const glassMat = createSurfaceMaterial({ color: 0x8bbac0, roughness: isTouchDevice ? 0.28 : 0.16, metalness: isTouchDevice ? 0.08 : 0.15, transparent: true, opacity: 0.48, transmission: 0.15 });
 const woodMat = mat(0x79583d, 0.55);
 const leafMat = mat(0x4a6946);
 const leafLightMat = mat(0x78905c);
@@ -212,8 +256,18 @@ const stoneMat = mat(0x777c73);
 const whiteMat = mat(0xf0eee5, 0.55);
 const goldMat = mat(0xb89b64, 0.35, 0.6);
 
+const primitiveGeometryCache = { box: new Map(), cylinder: new Map(), sphere: new Map() };
+const sharedPrimitiveGeometrySet = new WeakSet();
+function cachedPrimitiveGeometry(kind, key, create) {
+  const cache = primitiveGeometryCache[kind];
+  let geometry = cache.get(key);
+  if (!geometry) { geometry = create(); cache.set(key, geometry); sharedPrimitiveGeometrySet.add(geometry); }
+  return geometry;
+}
 function box(parent, x, y, z, w, h, d, material, cast = true, receive = true) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+  const key = `${w}|${h}|${d}`;
+  const geometry = cachedPrimitiveGeometry('box', key, () => new THREE.BoxGeometry(w, h, d));
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   mesh.castShadow = cast;
   mesh.receiveShadow = receive;
@@ -221,7 +275,9 @@ function box(parent, x, y, z, w, h, d, material, cast = true, receive = true) {
   return mesh;
 }
 function cylinder(parent, x, y, z, r1, r2, h, material, segments = 10) {
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, h, segments), material);
+  const key = `${r1}|${r2}|${h}|${segments}`;
+  const geometry = cachedPrimitiveGeometry('cylinder', key, () => new THREE.CylinderGeometry(r1, r2, h, segments));
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -229,7 +285,9 @@ function cylinder(parent, x, y, z, r1, r2, h, material, segments = 10) {
   return mesh;
 }
 function sphere(parent, x, y, z, radius, material, sx = 14, sy = 10) {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, sx, sy), material);
+  const key = `${radius}|${sx}|${sy}`;
+  const geometry = cachedPrimitiveGeometry('sphere', key, () => new THREE.SphereGeometry(radius, sx, sy));
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   mesh.castShadow = true;
   parent.add(mesh);
@@ -382,7 +440,7 @@ box(house, -5.2, 5.55, -3.55, 4.2, 1.45, 0.22, woodMat);
 for (const x of [-7.75, -2.65]) {
   box(house, x, 5.18, -3.3, 0.85, 0.62, 0.85, woodMat);
   cylinder(house, x, 5.75, -3.3, 0.16, 0.16, 0.16, goldMat, 10);
-  const lamp = new THREE.PointLight(0xffd29b, 0.35, 5);
+  const lamp = createManagedPointLight(0xffd29b, 0.35, 5);
   lamp.position.set(x, 6.2, -3.3); house.add(lamp);
 }
 box(house, -10.2, 6.15, 1.0, 2.6, 2.4, 1.0, mat(0x77786e));
@@ -414,7 +472,7 @@ const tvScreenMat = new THREE.MeshStandardMaterial({ color: 0x101b20, emissive: 
 box(house, -1.0, 2.22, -9.40, 4.75, 2.24, 0.055, tvScreenMat, false, false);
 box(house, -1.0, 0.55, -9.05, 5.9, 0.55, 0.72, woodMat);
 box(house, -1.0, 0.86, -8.68, 5.7, 0.08, 0.65, goldMat, false, false);
-const tvGlow = new THREE.PointLight(0x79b9d0, 0, 7);
+const tvGlow = createManagedPointLight(0x79b9d0, 0, 7);
 tvGlow.position.set(-1.0, 2.0, -7.9); house.add(tvGlow);
 
 // Open-plan dining room.
@@ -429,7 +487,7 @@ function diningChair(x, z, angle = 0) {
 diningChair(5.5, -4.45, 0); diningChair(5.5, -1.35, Math.PI);
 diningChair(3.0, -2.9, Math.PI / 2); diningChair(8.0, -2.9, -Math.PI / 2);
 cylinder(house, 5.5, 3.05, -2.9, 0.055, 0.055, 1.6, goldMat, 8);
-const diningLamp = new THREE.PointLight(0xffd7a0, 1.0, 10);
+const diningLamp = createManagedPointLight(0xffd7a0, 1.0, 10);
 diningLamp.position.set(5.5, 2.5, -2.9); house.add(diningLamp);
 
 // Contemporary kitchen along the left wall.
@@ -488,7 +546,7 @@ box(house, 4.6, 2.75, -9.70, 2.0, 1.7, 0.08, goldMat, false, false);
 box(house, 4.6, 2.75, -9.63, 1.78, 1.48, 0.06, mat(0x66796f), false, false);
 cylinder(house, -5.3, 1.25, 1.5, 0.07, 0.07, 2.1, goldMat, 8);
 sphere(house, -5.3, 2.42, 1.5, 0.38, whiteMat, 10, 8);
-const floorLamp = new THREE.PointLight(0xffc984, 0.55, 8);
+const floorLamp = createManagedPointLight(0xffc984, 0.55, 8);
 floorLamp.position.set(-5.3, 2.2, 1.5); house.add(floorLamp);
 // A visible wall switch beside the entrance controls the main interior lights.
 box(house, -11.73, 1.45, 3.8, 0.08, 0.58, 0.38, whiteMat, false, false);
@@ -501,10 +559,10 @@ for (const [x,z] of [[-1,-2.5],[5.5,-2.9],[-7,-6]]) {
 }
 const interiorLights = [];
 for (const [x,y,z,power,range] of [[-1,3.6,-2.5,1.25,11],[5.5,3.4,-2.9,1.1,10],[-7,3.5,-6,0.9,9]]) {
-  const light = new THREE.PointLight(0xffd4a1, power, range);
+  const light = createManagedPointLight(0xffd4a1, power, range);
   light.position.set(x,y,z); house.add(light); interiorLights.push(light);
 }
-const interiorAccent = new THREE.PointLight(0xffc77d, 0, 15);
+const interiorAccent = createManagedPointLight(0xffc77d, 0, 15);
 interiorAccent.position.set(0,3.2,3.5); house.add(interiorAccent);
 
 box(house, -12, 6.7, -1, 0.42, 4.0, 18, wallMat);
@@ -542,7 +600,7 @@ sphere(rightDoor, -1.68, 1.8, -0.16, 0.075, goldMat, 8, 6);
 // Wall lights
 for (const x of [-10.3, 10.3]) {
   box(house, x, 2.45, 8.32, 0.28, 0.6, 0.16, goldMat);
-  const lamp = new THREE.PointLight(0xffd9a2, 0.35, 8);
+  const lamp = createManagedPointLight(0xffd9a2, 0.35, 8);
   lamp.position.set(x, 2.5, 8.8);
   scene.add(lamp);
 }
@@ -550,7 +608,7 @@ for (const x of [-10.3, 10.3]) {
 // Pool terrace and water
 box(scene, 20, 0.05, -1, 12, 0.22, 19, mat(0xa9a99b));
 box(scene, 20, 0.18, -1, 10.5, 0.08, 17.5, mat(0x344c4e));
-const water = new THREE.Mesh(new THREE.PlaneGeometry(10.1, 17.1), new THREE.MeshPhysicalMaterial({ color: 0x4d9dac, roughness: 0.1, metalness: 0.15, transparent: true, opacity: 0.84 }));
+const water = new THREE.Mesh(new THREE.PlaneGeometry(10.1, 17.1), createSurfaceMaterial({ color: 0x4d9dac, roughness: 0.1, metalness: 0.15, transparent: true, opacity: 0.84 }));
 water.rotation.x = -Math.PI / 2;
 water.position.set(20, 0.27, -1);
 scene.add(water);
@@ -587,7 +645,7 @@ const gardenLights = [];
 for (const [x,z] of [[-13,15],[13,15],[-19,27],[19,27],[-13,-18],[13,-18]]) {
   cylinder(scene, x, 0.55, z, 0.11, 0.11, 1.1, trimMat, 8);
   sphere(scene, x, 1.15, z, 0.18, goldMat, 8, 6);
-  const light = new THREE.PointLight(0xffc77d, 0, 8);
+  const light = createManagedPointLight(0xffc77d, 0, 8);
   light.position.set(x,1.2,z); scene.add(light); gardenLights.push(light);
 }
 
@@ -664,7 +722,7 @@ const vehiclePaintOptions={
   sage:{name:'Sage Green',hex:0x71816b,price:220}
 };
 function applyVehiclePaint(){vehiclePaint.color.setHex(vehiclePaintOptions[vehicleGarageState.paint]?.hex??vehiclePaintOptions.midnight.hex);}
-const vehicleGlass = new THREE.MeshPhysicalMaterial({ color: 0x9dbdc0, roughness: 0.12, metalness: 0.15, transparent: true, opacity: 0.52 });
+const vehicleGlass = createSurfaceMaterial({ color: 0x9dbdc0, roughness: 0.12, metalness: 0.15, transparent: true, opacity: 0.52 });
 const tireMat = mat(0x202426, 0.92);
 const hubMat = mat(0xb6b6aa, 0.32, 0.78);
 const vehicleBrakeMat = new THREE.MeshStandardMaterial({ color: 0x8d3930, emissive: 0x6d100b, emissiveIntensity: 0.35, roughness: 0.38 });
@@ -690,12 +748,12 @@ for (const x of [-1.13, 1.13]) for (const z of [-1.48, 1.48]) {
 }
 const vehicleHeadlights = [];
 for (const x of [-0.72, 0.72]) {
-  const headlamp = new THREE.PointLight(0xffe7bb, 0, 16);
+  const headlamp = createManagedPointLight(0xffe7bb, 0, 16);
   headlamp.position.set(x, 0.95, -2.3); vehicleBody.add(headlamp); vehicleHeadlights.push(headlamp);
 }
 const vehicleBrakeLights = [];
 for (const x of [-0.82, 0.82]) {
-  const light = new THREE.PointLight(0xff3322, 0, 4.5, 2);
+  const light = createManagedPointLight(0xff3322, 0, 4.5, 2);
   light.position.set(x, 0.9, 2.28); vehicleBody.add(light); vehicleBrakeLights.push(light);
 }
 const vehicleShadow = new THREE.Mesh(new THREE.CircleGeometry(1.65, 24), new THREE.MeshBasicMaterial({color:0x17211e,transparent:true,opacity:0.16,depthWrite:false}));
@@ -727,14 +785,14 @@ const bikeExhaust=cylinder(motorcycleChassis,0.28,0.62,0.58,0.105,0.14,1.15,moto
 const bikeHandlebar=box(motorcycleSteering,0,0.28,-0.03,1.0,0.075,0.09,motorcycleMetalMat);
 for(const x of [-0.52,0.52]){const grip=cylinder(motorcycleSteering,x,0.28,-0.03,0.075,0.075,0.22,motorcycleSeatMat,10);grip.rotation.z=Math.PI/2;}
 const bikeHeadlamp=sphere(motorcycleSteering,0,0.03,-0.23,0.2,mat(0xe8dfbb,0.22,0.15),12,8);bikeHeadlamp.scale.set(1.05,0.85,0.65);
-const motorcycleHeadlight=new THREE.PointLight(0xffe8bc,0,17,2);motorcycleHeadlight.position.set(0,0.03,-0.37);motorcycleSteering.add(motorcycleHeadlight);
+const motorcycleHeadlight=createManagedPointLight(0xffe8bc,0,17,2);motorcycleHeadlight.position.set(0,0.03,-0.37);motorcycleSteering.add(motorcycleHeadlight);
 const bikeMirrorLeft=group(motorcycleSteering,-0.38,0.35,-0.02),bikeMirrorRight=group(motorcycleSteering,0.38,0.35,-0.02);
 for(const mirror of [bikeMirrorLeft,bikeMirrorRight]){const stem=box(mirror,0,0.09,-0.12,0.035,0.24,0.035,motorcycleMetalMat);stem.rotation.x=-0.35;sphere(mirror,0,0.22,-0.18,0.095,motorcycleMetalMat,10,7);}
 const bikeBrakeLens=sphere(motorcycleChassis,0,1.42,1.39,0.13,vehicleBrakeMat,10,7);bikeBrakeLens.scale.set(1.3,0.65,0.55);
-const motorcycleBrakeLight=new THREE.PointLight(0xff3022,0,3.8,2);motorcycleBrakeLight.position.set(0,1.36,1.43);motorcycleChassis.add(motorcycleBrakeLight);
+const motorcycleBrakeLight=createManagedPointLight(0xff3022,0,3.8,2);motorcycleBrakeLight.position.set(0,1.36,1.43);motorcycleChassis.add(motorcycleBrakeLight);
 const motorcycleShadow=new THREE.Mesh(new THREE.CircleGeometry(0.95,20),new THREE.MeshBasicMaterial({color:0x17211e,transparent:true,opacity:0.18,depthWrite:false}));motorcycleShadow.rotation.x=-Math.PI/2;motorcycleShadow.position.y=0.027;motorcycleShadow.scale.set(0.82,1.75,1);vehicleMotorcycleModel.add(motorcycleShadow);
 const motorcycleRider=group(motorcycleChassis);motorcycleRider.visible=false;
-const riderSuitMat=mat(0x33453f,0.72,0.08),riderTrimMat=mat(0xc4b38a,0.58,0.18),riderBootMat=mat(0x222829,0.82),riderHelmetMat=mat(0xd9d1bc,0.26,0.32),riderVisorMat=new THREE.MeshPhysicalMaterial({color:0x243b42,roughness:0.16,metalness:0.35,transparent:true,opacity:0.88});
+const riderSuitMat=mat(0x33453f,0.72,0.08),riderTrimMat=mat(0xc4b38a,0.58,0.18),riderBootMat=mat(0x222829,0.82),riderHelmetMat=mat(0xd9d1bc,0.26,0.32),riderVisorMat=createSurfaceMaterial({color:0x243b42,roughness:0.16,metalness:0.35,transparent:true,opacity:0.88});
 // Seated riding posture: tucked torso, hands on the bar and bent legs resting on the pegs.
 const riderPelvis=box(motorcycleRider,0,1.58,0.38,0.56,0.32,0.46,riderSuitMat);riderPelvis.rotation.x=-0.12;
 const riderTorso=box(motorcycleRider,0,2.0,0.12,0.66,0.78,0.43,riderSuitMat);riderTorso.rotation.x=-0.28;
@@ -759,7 +817,7 @@ const districtSidewalkMat = mat(0xbab8ac, 0.94);
 const districtMarkingMat = mat(0xe2ddc7, 0.72);
 const districtWallMat = mat(0xe2dfd4, 0.84);
 const districtTrimMat = mat(0x35423e, 0.44, 0.2);
-const districtGlassMat = new THREE.MeshPhysicalMaterial({ color:0x91b9bb, roughness:0.18, metalness:0.16, transparent:true, opacity:0.48 });
+const districtGlassMat = createSurfaceMaterial({ color:0x91b9bb, roughness:0.18, metalness:0.16, transparent:true, opacity:0.48 });
 const districtWoodMat = mat(0x765a43, 0.66);
 const districtStreetLights = [];
 
@@ -1030,7 +1088,7 @@ for (const x of [-32.45,-27.55]) {
 for (const x of [-32,-28]) box(scene,x,0.06,138.5,0.08,0.025,13.8,districtMarkingMat,false,false);
 districtSign(-30,6.45,130.8,'NORTHSIDE AUTO SPA','TOUCHLESS WASH · EXPRESS','#344a43');
 const vehicleWashLights = [-33,-30,-27].map(x => {
-  const light = new THREE.PointLight(0x8acbd7,0,7);
+  const light = createManagedPointLight(0x8acbd7,0,7);
   light.position.set(x,4.15,138.5);scene.add(light);return light;
 });
 
@@ -1054,7 +1112,7 @@ for (const x of [-43,43]) {
     cylinder(lamp,0,2.2,0,0.075,0.09,4.4,districtTrimMat,8);
     box(lamp,x>0?-0.52:0.52,4.35,0,1.08,0.09,0.09,districtTrimMat,false,false);
     const bulb=sphere(lamp,x>0?-1.0:1.0,4.27,0,0.13,mat(0xe9dcb2,0.22,0.05),8,6);
-    const light=new THREE.PointLight(0xe5d5a7,0.32,9);light.position.copy(bulb.position);lamp.add(light);
+    const light=createManagedPointLight(0xe5d5a7,0.32,9);light.position.copy(bulb.position);lamp.add(light);
   }
 }
 const roadRallyCourse={
@@ -1073,7 +1131,7 @@ function buildRoadRallyGate(point,title,subtitle,color=0xd9c18d){
     box(gate,side*3.72,1.52,0,0.2,3.04,0.2,frameMat,false,false);
     box(gate,side*3.72,3.1,0,0.42,0.12,0.42,goldMat,false,false);
     const lamp=sphere(gate,side*3.72,3.34,0,0.19,frameMat,10,7);
-    const glow=new THREE.PointLight(color,0.48,7);glow.position.copy(lamp.position);gate.add(glow);
+    const glow=createManagedPointLight(color,0.48,7);glow.position.copy(lamp.position);gate.add(glow);
   }
   box(gate,0,3.05,0,7.55,0.2,0.22,frameMat,false,false);
   box(gate,0,2.78,0,0.18,0.42,0.24,frameMat,false,false);
@@ -1102,7 +1160,7 @@ colliders.push(
 );
 box(scene,25,0.2,195.8,5.2,0.12,0.45,whiteMat,false,false);
 // Calm marina water and a compact motorboat create a clear visual landmark beyond the pier.
-const marinaWater = new THREE.Mesh(new THREE.PlaneGeometry(88,42),new THREE.MeshPhysicalMaterial({color:0x4a8792,roughness:0.16,metalness:0.1,transparent:true,opacity:0.9}));
+const marinaWater = new THREE.Mesh(new THREE.PlaneGeometry(88,42),createSurfaceMaterial({color:0x4a8792,roughness:0.16,metalness:0.1,transparent:true,opacity:0.9}));
 marinaWater.rotation.x=-Math.PI/2;marinaWater.position.set(39,0.018,220);scene.add(marinaWater);
 // North Shoal: a compact offshore island with a beach landing, beacon and a one-time salvage reward.
 const northShoal = group(scene,44,0,218);
@@ -1139,7 +1197,7 @@ cylinder(northShoal,3.55,2.85,-1.75,0.42,0.42,0.56,districtGlassMat,10);
 cylinder(northShoal,3.55,3.18,-1.75,0.55,0.55,0.14,trimMat,10);
 const shoalBeaconCap=new THREE.Mesh(new THREE.ConeGeometry(0.58,0.52,10),mat(0x9d6656));shoalBeaconCap.position.set(3.55,3.52,-1.75);northShoal.add(shoalBeaconCap);
 sphere(northShoal,3.55,2.88,-1.75,0.16,mat(0xffd58b,0.3,0.1),10,8);
-const shoalBeaconLight=new THREE.PointLight(0xffd18b,0.42,12);shoalBeaconLight.position.set(3.55,3.0,-1.75);scene.add(shoalBeaconLight);
+const shoalBeaconLight=createManagedPointLight(0xffd18b,0.42,12);shoalBeaconLight.position.set(3.55,3.0,-1.75);scene.add(shoalBeaconLight);
 // Salvage chest is deliberately away from the landing so the player explores the island.
 const shoalChest=group(northShoal,2.05,0.36,2.55);
 box(shoalChest,0,0.28,0,1.0,0.48,0.74,districtWoodMat);
@@ -1185,7 +1243,7 @@ const diveTargets=[
   else if(index===1){sphere(object,-0.28,0,0,0.42,whiteMat,12,8).scale.set(1.15,0.48,0.8);sphere(object,0.28,0,0,0.42,whiteMat,12,8).scale.set(1.15,0.48,0.8);sphere(object,0,0.27,0,0.19,goldMat,10,8);for(let i=0;i<5;i++)cylinder(object,-0.36+i*0.18,0.17,0,0.018,0.018,0.28,accent,6);}
   else{const body=cylinder(object,0,0.10,0,0.11,0.15,0.9,accent,8);body.rotation.z=-0.12;const head=sphere(object,0.08,0.62,-0.02,0.22,goldMat,10,8);sphere(object,0.25,0.66,-0.17,0.035,mat(0x13282d),6,5);const tail=new THREE.Mesh(new THREE.TorusGeometry(0.22,0.065,6,12,Math.PI*1.45),accent);tail.position.set(0.03,-0.36,0);object.add(tail);for(let i=0;i<3;i++)sphere(object,-0.17-i*0.12,0.24+i*0.15,0.08,0.12,accent,7,5);}
   const halo=new THREE.Mesh(new THREE.TorusGeometry(0.78,0.045,6,24),goldMat);halo.rotation.x=Math.PI/2;halo.position.y=-0.15;object.add(halo);
-  const light=new THREE.PointLight(index===2?0xe8c46e:0x8bd0c2,0.7,7);light.position.y=0.65;object.add(light);
+  const light=createManagedPointLight(index===2?0xe8c46e:0x8bd0c2,0.7,7);light.position.y=0.65;object.add(light);
   return {...item,group:object,halo,light,baseY:item.y};
 });
 const diveBubbles=Array.from({length:22},(_,index)=>{
@@ -1219,7 +1277,7 @@ function buildBoatRaceGate(x,z,axis,title,subtitle,color=0x8ed8d1){
     cylinder(buoy,0,0.96,0,0.29,0.37,0.38,floatMat,10);
     cylinder(buoy,0,1.25,0,0.23,0.28,0.22,accent,10);
     sphere(buoy,0,1.48,0,0.17,goldMat,8,6);
-    const lamp=new THREE.PointLight(color,0.34,5);lamp.position.set(0,1.5,0);buoy.add(lamp);
+    const lamp=createManagedPointLight(color,0.34,5);lamp.position.set(0,1.5,0);buoy.add(lamp);
   }
   box(gate,0,2.55,0,4.8,0.16,0.22,accent,false,false);
   box(gate,0,2.28,0,0.16,0.5,0.2,accent,false,false);
@@ -1247,12 +1305,12 @@ const boatSalvagePods = [
   const pole=cylinder(pod,0,2.05,-0.58,0.045,0.055,1.35,darkMetal,8);
   const pennant=new THREE.Mesh(new THREE.ConeGeometry(0.26,0.58,4),accent);pennant.position.set(0.18,2.58,-0.58);pennant.rotation.z=-Math.PI/2;pod.add(pennant);
   sphere(pod,0,2.96,-0.58,0.17,goldMat,8,6);
-  const glow=new THREE.PointLight(item.color,0.9,10);glow.position.set(0,2.75,0);pod.add(glow);
+  const glow=createManagedPointLight(item.color,0.9,10);glow.position.set(0,2.75,0);pod.add(glow);
   const tag=new THREE.Mesh(new THREE.TorusGeometry(1.88,0.035,5,28),goldMat);tag.rotation.x=Math.PI/2;tag.position.y=0.34;pod.add(tag);
   return {...item,group:pod,ring,glow,pennant};
 });
 
-const shoalShoreLight=new THREE.PointLight(0xffd39a,0,9);shoalShoreLight.position.set(40.6,2.2,218);scene.add(shoalShoreLight);
+const shoalShoreLight=createManagedPointLight(0xffd39a,0,9);shoalShoreLight.position.set(40.6,2.2,218);scene.add(shoalShoreLight);
 
 const marinaBoat = group(scene,32,0.18,216);
 box(marinaBoat,0,0.38,0,2.55,0.56,6.4,whiteMat);
@@ -1267,7 +1325,7 @@ for(let i=0;i<4;i++){const a=i*Math.PI/2;box(boatHelm,Math.cos(a)*0.16,Math.sin(
 box(marinaBoat,0,0.72,1.45,1.5,0.24,0.75,districtWoodMat,false,false);
 for (const x of [-0.82,0.82]) box(marinaBoat,x,0.58,-0.55,0.08,0.36,1.72,districtTrimMat,false,false);
 const marinaWaterLights = [-4,0,4].map(offset=>{
-  const light=new THREE.PointLight(0x8dcbd0,0,9);light.position.set(25+offset,2.5,209);scene.add(light);return light;
+  const light=createManagedPointLight(0x8dcbd0,0,9);light.position.set(25+offset,2.5,209);scene.add(light);return light;
 });
 const marinaFishingFloat = group(scene,25.65,0.18,214.1);
 sphere(marinaFishingFloat,0,0,0,0.13,mat(0xe6e2d0,0.34),10,8);
@@ -1289,7 +1347,7 @@ for (const x of [-0.82,0.82]) box(marinaBench,x,0.31,0,0.12,0.6,0.12,trimMat);
 for (const x of [12,38]) {
   cylinder(scene,x,1.9,188,0.09,0.12,3.8,trimMat,8);
   sphere(scene,x,3.82,188,0.23,goldMat,8,6);
-  const light=new THREE.PointLight(0xffd29a,0,10);light.position.set(x,3.65,188);scene.add(light);districtStreetLights.push(light);
+  const light=createManagedPointLight(0xffd29a,0,10);light.position.set(x,3.65,188);scene.add(light);districtStreetLights.push(light);
 }
 
 // Riverside Lookout: a small scenic parking spur, boardwalk, water and seating.
@@ -1298,7 +1356,7 @@ box(scene,-18,0.015,148.1,16,0.16,10.5,districtWoodMat);
 box(scene,-18,0.11,153.7,18,0.08,0.34,districtTrimMat);
 box(scene,-27,0.11,148.1,0.34,0.08,10.5,districtTrimMat);
 box(scene,-9,0.11,148.1,0.34,0.08,10.5,districtTrimMat);
-const riversideWater = new THREE.Mesh(new THREE.PlaneGeometry(23,12),new THREE.MeshPhysicalMaterial({color:0x4b8790,roughness:0.16,metalness:0.12,transparent:true,opacity:0.88}));
+const riversideWater = new THREE.Mesh(new THREE.PlaneGeometry(23,12),createSurfaceMaterial({color:0x4b8790,roughness:0.16,metalness:0.12,transparent:true,opacity:0.88}));
 riversideWater.rotation.x=-Math.PI/2;riversideWater.position.set(-18,0.015,161);scene.add(riversideWater);
 for (const [x,z] of [[-29,151],[-7,151],[-29,159],[-7,159]]) tree(x,z,0.72);
 const lookoutBench = group(scene,-18,0,148.7);
@@ -1341,7 +1399,7 @@ box(picnicSandwich,0,0.18,0,0.43,0.045,0.31,mat(0x75945d,0.9),false,false);
 for (const [x,z] of [[-8.1,70],[8.1,70],[-8.1,94],[8.1,94],[-39,75],[39,75]]) {
   cylinder(scene,x,1.9,z,0.09,0.12,3.8,trimMat,8);
   sphere(scene,x,3.82,z,0.23,goldMat,8,6);
-  const light=new THREE.PointLight(0xffd29a,0,10);light.position.set(x,3.65,z);scene.add(light);districtStreetLights.push(light);
+  const light=createManagedPointLight(0xffd29a,0,10);light.position.set(x,3.65,z);scene.add(light);districtStreetLights.push(light);
 }
 
 // NPCs use small procedural rigs and waypoint routes around the garden.
@@ -1453,7 +1511,7 @@ const parcelObjects = parcelSpots.map(([x,z],index) => {
   box(parcel,0,0.36,0,0.9,0.72,0.85,mat(0xb58b58));
   box(parcel,0,0.37,0,0.12,0.74,0.88,mat(0xe2d2ad),false,false);
   box(parcel,0,0.74,0,0.92,0.06,0.87,mat(0x8b663e),false,false);
-  const marker = new THREE.PointLight(0xe8d49b,0,3.5);marker.position.set(0,1.0,0);parcel.add(marker);
+  const marker = createManagedPointLight(0xe8d49b,0,3.5);marker.position.set(0,1.0,0);parcel.add(marker);
   parcel.visible=false;
   return {group:parcel,light:marker,index,x,z};
 });
@@ -1470,7 +1528,7 @@ const courierNetworkMarker = (() => {
   const crate=group(root,0,0.62,0);
   box(crate,0,0,0,0.9,0.72,0.82,mat(0xb58b58,0.82,0.08));
   box(crate,0,0,0.42,0.12,0.74,0.035,mat(0xe2d2ad),false,false);
-  const light=new THREE.PointLight(0xd8c18a,1.6,10);light.position.set(0,2.15,0);root.add(light);
+  const light=createManagedPointLight(0xd8c18a,1.6,10);light.position.set(0,2.15,0);root.add(light);
   root.visible=false;
   return {group:root,ring,light,crate};
 })();
@@ -1483,7 +1541,7 @@ const gardenTaskMarkers = gardenTaskSpots.map(([x,z],index) => {
   ring.rotation.x = -Math.PI/2; ring.position.y = 0.12; marker.add(ring);
   cylinder(marker,0,0.38,0,0.12,0.12,0.42,mat(0x73b9b1),10);
   sphere(marker,0,0.72,0,0.2,mat(0xb5e6dc),10,8);
-  const glow = new THREE.PointLight(0x7bcfc2,0,4); glow.position.y=0.8; marker.add(glow);
+  const glow = createManagedPointLight(0x7bcfc2,0,4); glow.position.y=0.8; marker.add(glow);
   marker.visible=false;
   return {group:marker,glow,index,x,z};
 });
@@ -1708,7 +1766,7 @@ for (const [knee,foot] of [[kneeL,footL],[kneeR,footR]]) {
 const playerMotion = { state: 'idle', speed: 0, blend: 0, gaitPhase: 0, turnRate: 0, landingKick: 0 };
 let diveGear;
 diveGear=group(avatar);
-const diveTankMat=mat(0xe2a84f,0.42,0.3),diveStrapMat=mat(0x283f42,0.72),diveMaskMat=new THREE.MeshPhysicalMaterial({color:0x79c5ce,roughness:0.18,metalness:0.2,transparent:true,opacity:0.76});
+const diveTankMat=mat(0xe2a84f,0.42,0.3),diveStrapMat=mat(0x283f42,0.72),diveMaskMat=createSurfaceMaterial({color:0x79c5ce,roughness:0.18,metalness:0.2,transparent:true,opacity:0.76});
 cylinder(diveGear,0,1.1,0.32,0.17,0.19,0.78,diveTankMat,10);
 box(diveGear,0,1.17,0.12,0.44,0.08,0.08,diveStrapMat,false,false);
 box(diveGear,0,0.86,0.12,0.43,0.08,0.08,diveStrapMat,false,false);
@@ -3547,7 +3605,7 @@ function applyPropertyUpgradeVisuals() {
   for (const object of Object.values(propertyUpgradeObjects)) {
     house.remove(object);
     object.traverse(child => {
-      if (child.geometry) child.geometry.dispose();
+      if (child.geometry && !sharedPrimitiveGeometrySet.has(child.geometry)) child.geometry.dispose();
       if (child.material && child.material.userData?.propertyUpgradeMaterial) child.material.dispose();
     });
   }
@@ -3601,7 +3659,7 @@ function applyPropertyUpgradeVisuals() {
     for (const x of [-7.8,-2.6]) {
       box(g,x,5.17,-3.3,0.92,0.08,0.92,metal);
       cylinder(g,x,5.78,-3.3,0.14,0.14,0.18,metal,10);
-      const glow = new THREE.PointLight(0xffd39c,0.34,4.5); glow.position.set(x,6.0,-3.3); g.add(glow);
+      const glow = createManagedPointLight(0xffd39c,0.34,4.5); glow.position.set(x,6.0,-3.3); g.add(glow);
     }
     if (propertyUpgrades.bedroom > 1) {
       for (const x of [-7.25,-3.15]) {
@@ -3636,7 +3694,7 @@ function applyPropertyUpgradeVisuals() {
     if (propertyUpgrades.terrace > 1) {
       for (let i=0;i<11;i++) box(g,-5.4+i*0.98,3.38,-15.0,0.08,0.22,7.0,dark,false,false);
       for (const x of [-5.0,4.0]) {
-        const lantern = new THREE.PointLight(0xffd49b,0.48,6); lantern.position.set(x,2.8,-15.0); g.add(lantern);
+        const lantern = createManagedPointLight(0xffd49b,0.48,6); lantern.position.set(x,2.8,-15.0); g.add(lantern);
         box(g,x,2.82,-15.0,0.38,0.42,0.38,brassMaterialForTerrace(),false,false);
       }
     }
@@ -3651,7 +3709,7 @@ function applyPropertyUpgradeVisuals() {
     const exteriorMaterial = mat(0x69766f,0.78); exteriorMaterial.userData.propertyUpgradeMaterial = true;
     const floorMaterial = mat(0xbdb6a7,0.93); floorMaterial.userData.propertyUpgradeMaterial = true;
     const trimMaterial = mat(0x343f3b,0.42,0.22); trimMaterial.userData.propertyUpgradeMaterial = true;
-    const glassMaterial = new THREE.MeshPhysicalMaterial({color:0x8bbac0,roughness:0.17,metalness:0.12,transparent:true,opacity:0.48}); glassMaterial.userData.propertyUpgradeMaterial = true;
+    const glassMaterial = createSurfaceMaterial({color:0x8bbac0,roughness:0.17,metalness:0.12,transparent:true,opacity:0.48}); glassMaterial.userData.propertyUpgradeMaterial = true;
     const wood = mat(0x79583f,0.58); wood.userData.propertyUpgradeMaterial = true;
     const brass = mat(0xb89b64,0.34,0.55); brass.userData.propertyUpgradeMaterial = true;
     const dark = mat(0x45554f,0.52); dark.userData.propertyUpgradeMaterial = true;
@@ -3674,7 +3732,7 @@ function applyPropertyUpgradeVisuals() {
       }
       box(g,-28.29,1.58,centerZ,0.12,0.1,Math.min(5.2,depth*0.62),brass,false,false);
       // A small warm ceiling fixture makes the new rooms feel occupied.
-      const ceilingLight=new THREE.PointLight(0xffd7a7,0.8,11);ceilingLight.position.set(-20,3.75,centerZ);g.add(ceilingLight);
+      const ceilingLight=createManagedPointLight(0xffd7a7,0.8,11);ceilingLight.position.set(-20,3.75,centerZ);g.add(ceilingLight);
       // Outer short wall at the far end of each purchased room.
       const outerZ=room.key==='studio'?-10:8.0;
       box(g,-20,2.35,outerZ,16.0,4.5,0.42,wallMaterial);
@@ -3708,7 +3766,7 @@ function applyPropertyUpgradeVisuals() {
           box(g,-24.96,1.6,-6.045,0.82,0.6,0.025,glassMaterial,false,false);
           box(g,-15.1,1.4,-4.4,0.34,2.5,3.0,wood);
           for (let y of [0.7,1.3,1.9,2.5]) box(g,-15.0,y,-4.4,0.45,0.055,2.8,brass,false,false);
-          const taskLight=new THREE.PointLight(0xb8d7e2,0.48,6);taskLight.position.set(-25,2.7,-5.3);g.add(taskLight);
+          const taskLight=createManagedPointLight(0xb8d7e2,0.48,6);taskLight.position.set(-25,2.7,-5.3);g.add(taskLight);
         }
       } else {
         // Guest suite: full bed, upholstered headboard, side tables and wardrobe.
@@ -3720,7 +3778,7 @@ function applyPropertyUpgradeVisuals() {
         for (const x of [-23.7,-18.5]) {
           box(g,x,0.62,1.65,0.88,0.82,0.88,wood);
           box(g,x,1.08,1.65,0.94,0.09,0.94,brass,false,false);
-          const lamp=new THREE.PointLight(0xffd19b,0.35,4.3);lamp.position.set(x,1.7,1.65);g.add(lamp);
+          const lamp=createManagedPointLight(0xffd19b,0.35,4.3);lamp.position.set(x,1.7,1.65);g.add(lamp);
           cylinder(g,x,1.42,1.65,0.13,0.16,0.2,brass,10);
         }
         box(g,-14.6,1.3,3.2,1.55,2.4,4.8,exteriorMaterial);
@@ -3777,7 +3835,7 @@ function createDecorModel(item) {
     cylinder(decor,0,0.12,0,0.34,0.34,0.16,goldMat,12);
     cylinder(decor,0,1.05,0,0.055,0.055,1.75,trimMat,8);
     cylinder(decor,0,2.05,0,0.42,0.24,0.48,whiteMat,12);
-    const glow = new THREE.PointLight(0xffd5a0,0.72,7); glow.position.set(0,1.95,0); decor.add(glow);
+    const glow = createManagedPointLight(0xffd5a0,0.72,7); glow.position.set(0,1.95,0); decor.add(glow);
   } else if (item === 'bookshelf') {
     box(decor,0,1.05,0,1.75,2.1,0.42,woodMat);
     box(decor,0,1.05,0.23,1.52,1.88,0.035,mat(0x302d29),false,false);
@@ -3841,7 +3899,7 @@ function startDecorPlacement(item){
   updatePlacementTarget(innerWidth/2,innerHeight/2);
 }
 function rotateDecorPlacement(){if(!placementMode)return;placementMode.yaw=(placementMode.yaw+Math.PI/4)%(Math.PI*2);placementMode.object.rotation.y=placementMode.yaw;}
-function disposeDecorPreview(object){object.traverse(child=>{if(child.userData.ghostMaterial)child.userData.ghostMaterial.dispose();if(child.geometry)child.geometry.dispose();});}
+function disposeDecorPreview(object){object.traverse(child=>{if(child.userData.ghostMaterial)child.userData.ghostMaterial.dispose();if(child.geometry&&!sharedPrimitiveGeometrySet.has(child.geometry))child.geometry.dispose();});}
 function cancelDecorPlacement(notify=true){if(!placementMode)return;house.remove(placementMode.object);disposeDecorPreview(placementMode.object);placementMode=null;document.querySelector('#placement-controls').classList.add('hidden');if(notify)showToast('PENEMPATAN DIBATALKAN · ITEM TETAP DI INVENTORY');}
 function confirmDecorPlacement(){
   if(!placementMode)return;if(!placementMode.valid){showToast('POSISI TIDAK VALID · PILIH AREA LANTAI YANG KOSONG');return;}
@@ -4205,6 +4263,9 @@ function collectDiveTarget(){
   showToast(bonus?`REEF EXPEDITION COMPLETE · +$${payout} + BONUS $${bonus} · DIVING XP +${target.xp}`:`${target.name} DISCOVERED · +$${payout} · DIVING XP +${target.xp}`);
 }
 function updateDive(dt){
+  const proximityOrigin=inBoat?marinaBoat.position:inVehicle?vehicle.position:player.position;
+  const nearReef=Math.hypot(proximityOrigin.x-47,proximityOrigin.z-228)<72;
+  if(!divingState.active&&!nearReef)return;
   resetDiveSiteForDay();const time=performance.now()*0.001;
   reefFish.forEach((fish,index)=>{const data=fish.userData;fish.position.x=data.baseX+Math.sin(time*0.7+data.phase)*data.radius;fish.position.z=data.baseZ+Math.cos(time*0.54+data.phase)*data.radius*0.65;fish.position.y=-3.3+Math.sin(time*1.7+data.phase)*0.2;fish.rotation.y=Math.atan2(Math.cos(time*0.7+data.phase)*0.7,-Math.sin(time*0.54+data.phase)*0.35);data.tail.rotation.y=Math.sin(time*8+data.phase)*0.35;});
   diveTargets.forEach((target,index)=>{target.group.position.y=target.baseY+Math.sin(time*1.2+index)*0.09;target.halo.rotation.z=time*0.34+index;target.light.intensity=target.group.visible?0.55+Math.sin(time*2.1+index)*0.18:0;});
@@ -6051,14 +6112,13 @@ function updateDayNight(dt) {
   const daylight = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
   const nightMix = 1 - daylight;
   vehicleNightMix = nightMix;
-  const daySky = new THREE.Color(0x9bc4d0), nightSky = new THREE.Color(0x142333);
-  const sky = nightSky.lerp(daySky, daylight);
-  scene.background.copy(sky); scene.fog.color.copy(sky);
+  blendedSkyColor.copy(nightSkyColor).lerp(daySkyColor, daylight);
+  scene.background.copy(blendedSkyColor); scene.fog.color.copy(blendedSkyColor);
   if(divingState.active){scene.background.setHex(0x082e3e);scene.fog.color.setHex(0x0c4050);scene.fog.near=4;scene.fog.far=37;}else{scene.fog.near=70;scene.fog.far=270;}
   hemi.intensity = 0.42 + daylight * 1.6;
   sun.intensity = 0.04 + daylight * 2.9;
   sun.position.set(Math.cos((hour - 12) / 24 * Math.PI * 2) * 58, Math.sin(((hour - 6) / 12) * Math.PI) * 62 + 3, 35);
-  sun.color.set(0x8da9dc).lerp(new THREE.Color(0xffe4bd), daylight);
+  sun.color.copy(nightSunColor).lerp(daySunColor, daylight);
   fill.intensity = 0.12 + daylight * 0.65;
   gardenLights.forEach(light => { light.intensity = nightMix * 0.85; });
   districtStreetLights.forEach(light => { light.intensity = nightMix * 1.05; });
@@ -6528,7 +6588,7 @@ function update(dt) {
   const desiredCameraDistance = cameraRayDirection.length();
   if (desiredCameraDistance > 0.001) cameraRayDirection.multiplyScalar(1 / desiredCameraDistance);
   cameraOcclusionTimer += dt;
-  if (cameraOcclusionTimer >= 0.10 && !inVehicle && !inBoat && !divingState.active) {
+  if (cameraOcclusionTimer >= (isTouchDevice ? 0.18 : 0.10) && !inVehicle && !inBoat && !divingState.active) {
     cameraOcclusionTimer = 0;
     cameraOcclusionRaycaster.set(cameraDesiredLookAt, cameraRayDirection);
     cameraOcclusionRaycaster.near = 0.28;
@@ -6568,6 +6628,7 @@ window.__estateDebug = () => ({
   started: isStarted,
   keys: [...keys],
   graphicsQuality, autoSaveEnabled, rendererFallbackActive,
+  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
   nearby: currentTarget?.id ?? null,
   floorHeight: getGroundHeight(player.position.x, player.position.z),
   objectives: { ...objectiveState },
@@ -6588,11 +6649,30 @@ window.__estateDebug = () => ({
 });
 function animate(timestamp) {
   requestAnimationFrame(animate);
+  if (document.hidden) { lastAnimationTimestamp = 0; return; }
+  if (lastAnimationTimestamp > 0) {
+    const frameDelta = timestamp - lastAnimationTimestamp;
+    if (frameDelta > 0 && frameDelta < 250) {
+      adaptiveFrameTime += (frameDelta - adaptiveFrameTime) * 0.08;
+      if (isTouchDevice && timestamp - lastAdaptiveResolutionUpdate > 2200) {
+        lastAdaptiveResolutionUpdate = timestamp;
+        if (adaptiveFrameTime > 22 && adaptiveRenderScale > 0.72) {
+          adaptiveRenderScale = Math.max(0.72, adaptiveRenderScale - 0.08);
+          updateRendererResolution();
+        } else if (adaptiveFrameTime < 17.5 && adaptiveRenderScale < 1) {
+          adaptiveRenderScale = Math.min(1, adaptiveRenderScale + 0.04);
+          updateRendererResolution();
+        }
+      }
+    }
+  }
+  lastAnimationTimestamp = timestamp;
   clock.update(timestamp);
   const dt = Math.min(clock.getDelta(), 0.035);
   update(dt);
   renderer.render(scene, camera);
 }
+document.addEventListener('visibilitychange', () => { lastAnimationTimestamp = 0; });
 // Restore the latest local save automatically so returning players can resume immediately.
 try {
   if (localStorage.getItem('estate-explorer-save-v4') || localStorage.getItem('estate-explorer-save-v3')) loadGame(false);
@@ -6607,8 +6687,7 @@ animate();
 function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, graphicsPresets[graphicsQuality]?.pixelRatio || 1.35));
+  updateRendererResolution();
 }
 window.addEventListener('resize', resize);
 document.querySelector('#clock').textContent = new Date().toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit',hour12:false});

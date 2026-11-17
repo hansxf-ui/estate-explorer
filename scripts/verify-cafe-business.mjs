@@ -11,7 +11,7 @@ function check(name,fn){fn();passed++;console.log(`✓ ${name}`);}
 
 check('Startup retries WebGL with a low-power no-antialias renderer if the primary context fails',()=>{
   assert.match(source,/let rendererFallbackActive = false/);
-  assert.match(source,/new THREE\.WebGLRenderer\(\{ antialias: true, powerPreference: 'high-performance' \}\)/);
+  assert.match(source,/new THREE\.WebGLRenderer\(\{ antialias: !isTouchDevice, powerPreference: 'high-performance' \}\)/);
   assert.match(source,/new THREE\.WebGLRenderer\(\{ antialias: false, powerPreference: 'low-power' \}\)/);
   assert.match(source,/rendererFallbackActive = true/);
   assert.match(source,/rendererFallbackActive,/);
@@ -122,10 +122,10 @@ check('The business dashboard has responsive stock, reputation, profit and upgra
   assert.match(css,/\.cafe-local-supply-card/);
   assert.match(css,/@media\(max-width:700px\)\{\.cafe-business-section/);
 });
-check('The 40.8 release notes, package, lockfile and aggregate test runner include the cafe business system',()=>{
-  assert.equal(pkg.version,'0.40.8');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.8</title>'));
-  assert.ok(html.includes('BUILD 0.40.8'));
+check('The 40.9 release notes, package, lockfile and aggregate test runner include the cafe business system',()=>{
+  assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.9</title>'));
+  assert.ok(html.includes('BUILD 0.40.9'));
   assert.match(readme,/Prototype 40\.7 — Corner Cafe Ownership & Business Management/);
   assert.match(pkg.scripts['test:game'],/test:cafe-business/);
 });

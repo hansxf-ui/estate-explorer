@@ -136,11 +136,11 @@ check('Debug snapshot exposes relationship gates and hangout progress', () => {
 });
 
 check('Prototype 39 app, npm package, lockfile and release notes are synchronized', () => {
-  assert.equal(pkg.version, '0.40.8');
+  assert.equal(pkg.version, '0.40.9');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.8'));
+  assert.ok(html.includes('BUILD 0.40.9'));
   assert.match(readme, /Prototype 39 — Relationship-Driven Hangout Sessions/);
   assert.match(pkg.scripts['test:game'], /test:npc/);
 });

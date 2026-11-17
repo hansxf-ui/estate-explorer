@@ -37,8 +37,8 @@ check('The motorcycle is a separate 3D model with working wheels, forks, tank, s
  assert.match(source,/const bikeFuelTank=sphere\(motorcycleChassis/);
  assert.match(source,/const bikeEngine=cylinder/);assert.match(source,/const bikeExhaust=cylinder/);
  assert.match(source,/const motorcycleSteering=group/);
- assert.match(source,/const motorcycleHeadlight=new THREE\.PointLight/);
- assert.match(source,/const motorcycleBrakeLight=new THREE\.PointLight/);
+ assert.match(source,/const motorcycleHeadlight=createManagedPointLight/);
+ assert.match(source,/const motorcycleBrakeLight=createManagedPointLight/);
  assert.match(source,/const motorcycleRider=group\(motorcycleChassis\);motorcycleRider\.visible=false/);
  assert.match(source,/const riderTorso=box\(motorcycleRider/);assert.match(source,/riderHelmetMat/);
  assert.match(source,/motorcycleRider\.visible=selectedVehicleType==='motorcycle'/);
@@ -108,8 +108,8 @@ check('Diagnostics expose ownership, active model and per-vehicle telemetry; rel
  assert.match(source,/vehicleFleet:\{selected:selectedVehicleType,motorcycleOwned,telemetry:/);
  assert.match(source,/models:\{suv:vehicleCarModel\.visible,motorcycle:vehicleMotorcycleModel\.visible,rider:motorcycleRider\.visible\}/);
  assert.match(source,/dealer: \{kioskPosition:\[12\.25,60\.2\],deliveryBay:\[dealerVehicleBay\.x,dealerVehicleBay\.z\],bikePrice:motorcyclePurchasePrice\}/);
- assert.equal(pkg.version,'0.40.8');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.8'));assert.match(readme,/Prototype 40\.4 — Estate Motor Showroom & Sport Motorcycle Ownership/);
+ assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.9'));assert.match(readme,/Prototype 40\.4 — Estate Motor Showroom & Sport Motorcycle Ownership/);
  assert.match(pkg.scripts['test:game'],/test:dealer/);
 });
 console.log(`\\n${passed} Estate Motor Showroom and Sport Motorcycle checks passed.`);
