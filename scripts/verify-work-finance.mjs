@@ -92,12 +92,12 @@ check('Work board and finance ledger have responsive cards and readable states',
   assert.match(css, /\.finance-totals/);
   assert.match(css, /@media\(max-width:700px\)[\s\S]*?\.work-finance-panel/);
 });
-check('Version 0.40.13 and Prototype 39 metadata are consistent', () => {
-  assert.equal(pkg.version, '0.40.13');
+check('Version 0.40.14 and Prototype 39 metadata are consistent', () => {
+  assert.equal(pkg.version, '0.40.14');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.13'));
+  assert.ok(html.includes('BUILD 0.40.14'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

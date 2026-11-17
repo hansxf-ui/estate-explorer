@@ -1,3 +1,11 @@
+## Prototype 40.14 — Deep iPad Frame-Time Optimization
+- Replaced global static-mesh batches with spatially partitioned 48-unit cells. Each InstancedMesh now has a local bounding sphere, allowing Three.js to frustum-cull distant blocks instead of drawing an entire cross-world batch because one part is visible.
+- Tightened the touch Performance pixel ratio to 0.50 (Low: 0.42), allowing adaptive resolution down to 0.33 effective pixels per CSS pixel. The previous 0.64 preset was not aggressive enough for this scene on the target browser.
+- Reduced touch camera/fog distances to 120/105 units, prioritizing the nearby playable neighborhood over faraway scenery; more distant areas enter view as the player approaches.
+- Throttled day/night and light updates to 15 Hz, marina idle animation to 30 Hz, and interaction-target scans to 12.5 Hz on touch devices. Player input, movement, camera and final rendering remain display-refresh driven.
+- Cached the frequently used desktop HUD nodes and only apply mode-dependent HUD visibility changes when the player's vehicle/boat/dive/control state changes, rather than querying and toggling every frame.
+- Kept V18 save compatibility and gameplay systems intact. Real iPad performance still needs hardware confirmation; the box browser has no working WebGL context.
+
 ## Prototype 40.13 — iPad Render Budget & Static World Batching
 - Reduced the touch Performance preset render scale to 0.64 (Low: 0.54), and removed the old 0.65 hard floor that prevented adaptive resolution from dropping further. Under sustained frame pressure it now scales down toward 0.45 effective pixels per CSS pixel, then recovers gradually when frame time is healthy.
 - Switched touch-device lit materials to lightweight Lambert shading and disabled filmic tone mapping on touch GPUs. Desktop materials and desktop tone mapping stay unchanged.

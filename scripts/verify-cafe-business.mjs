@@ -123,9 +123,9 @@ check('The business dashboard has responsive stock, reputation, profit and upgra
   assert.match(css,/@media\(max-width:700px\)\{\.cafe-business-section/);
 });
 check('The 40.11 release notes, package, lockfile and aggregate test runner include the cafe business system',()=>{
-  assert.equal(pkg.version,'0.40.13');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.13</title>'));
-  assert.ok(html.includes('BUILD 0.40.13'));
+  assert.equal(pkg.version,'0.40.14');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.14</title>'));
+  assert.ok(html.includes('BUILD 0.40.14'));
   assert.match(readme,/Prototype 40\.7 — Corner Cafe Ownership & Business Management/);
   assert.match(pkg.scripts['test:game'],/test:cafe-business/);
 });

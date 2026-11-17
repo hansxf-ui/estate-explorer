@@ -67,9 +67,9 @@ check('The boat HUD surfaces nearby cargo, slow-down guidance and daily recovery
   assert.match(css,/\.boat-salvage-prompt/);
   assert.match(css,/\.boat-salvage-btn/);
 });
-check('The 0.40.13 release metadata and aggregate game test include Coastal Salvage',()=>{
-  assert.equal(pkg.version,'0.40.13');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.13'));
+check('The 0.40.14 release metadata and aggregate game test include Coastal Salvage',()=>{
+  assert.equal(pkg.version,'0.40.14');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.14'));
   assert.match(readme,/Prototype 39\.8 — Coastal Salvage & Sailing Progression/);
   assert.match(pkg.scripts['test:game'],/test:salvage/);
 });

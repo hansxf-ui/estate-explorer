@@ -110,8 +110,8 @@ check('Diagnostics expose ownership, active model and per-vehicle telemetry; rel
  assert.match(source,/vehicleFleet:\{selected:selectedVehicleType,motorcycleOwned,telemetry:/);
  assert.match(source,/models:\{suv:vehicleCarModel\.visible,motorcycle:vehicleMotorcycleModel\.visible,rider:motorcycleRider\.visible\}/);
  assert.match(source,/dealer: \{kioskPosition:\[12\.25,60\.2\],deliveryBay:\[dealerVehicleBay\.x,dealerVehicleBay\.z\],bikePrice:motorcyclePurchasePrice\}/);
- assert.equal(pkg.version,'0.40.13');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.13'));assert.match(readme,/Prototype 40\.4 — Estate Motor Showroom & Sport Motorcycle Ownership/);
+ assert.equal(pkg.version,'0.40.14');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.14'));assert.match(readme,/Prototype 40\.4 — Estate Motor Showroom & Sport Motorcycle Ownership/);
  assert.match(pkg.scripts['test:game'],/test:dealer/);
 });
 console.log(`\\n${passed} Estate Motor Showroom and Sport Motorcycle checks passed.`);

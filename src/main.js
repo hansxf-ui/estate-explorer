@@ -79,10 +79,14 @@ const districtStoreTitle = document.querySelector('#district-store-title');
 const districtStoreCopy = document.querySelector('#district-store-copy');
 const districtProductList = document.querySelector('#district-product-list');
 const locationLabel = document.querySelector('#location-label');
+const vehicleDesktopHint = document.querySelector('#vehicle-desktop-hint');
+const boatDesktopHint = document.querySelector('#boat-desktop-hint');
+const diveDesktopHint = document.querySelector('#dive-desktop-hint');
+const desktopHint = document.querySelector('#desktop-hint');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.13';
+const GRAPHICS_PREFERENCE_VERSION = '40.14';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
@@ -95,8 +99,8 @@ try {
   console.warn('Browser storage is unavailable; settings will be temporary.', error);
 }
 const graphicsPresets = {
-  performance: { pixelRatio: 0.64, shadows: false, shadowMap: 512, dynamicLights: false },
-  low: { pixelRatio: 0.54, shadows: false, shadowMap: 512, dynamicLights: false },
+  performance: { pixelRatio: 0.50, shadows: false, shadowMap: 512, dynamicLights: false },
+  low: { pixelRatio: 0.42, shadows: false, shadowMap: 512, dynamicLights: false },
   balanced: { pixelRatio: 1.35, shadows: true, shadowMap: 1024, dynamicLights: true },
   high: { pixelRatio: 1.7, shadows: true, shadowMap: 2048, dynamicLights: true }
 };
@@ -106,7 +110,7 @@ let lastAnimationTimestamp = 0;
 let lastAdaptiveResolutionUpdate = 0;
 function effectiveRenderPixelRatio() {
   const preset = graphicsPresets[graphicsQuality] || graphicsPresets.performance;
-  return Math.max(0.40, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
+  return Math.max(0.30, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
 }
 function updateRendererResolution() {
   if (!renderer) return;
@@ -134,8 +138,8 @@ const nightSunColor = new THREE.Color(0x8da9dc);
 const daySunColor = new THREE.Color(0xffe4bd);
 const blendedSkyColor = new THREE.Color();
 
-const WORLD_VIEW_DISTANCE = isTouchDevice ? 170 : 260;
-const WORLD_FOG_DISTANCE = isTouchDevice ? 155 : 270;
+const WORLD_VIEW_DISTANCE = isTouchDevice ? 120 : 260;
+const WORLD_FOG_DISTANCE = isTouchDevice ? 105 : 270;
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, WORLD_VIEW_DISTANCE);
 camera.position.set(0, 5, 34);
 const hangoutCameraTarget = new THREE.Vector3();
@@ -346,11 +350,15 @@ let staticBatchStats = { batches: 0, sourceMeshes: 0, drawCallsSaved: 0 };
 function batchStaticScenePrimitives() {
   scene.updateMatrixWorld(true);
   const candidates = new Map();
+  const worldPosition = new THREE.Vector3();
   for (const mesh of [...scene.children]) {
     if (!mesh.isMesh || !mesh.visible || !mesh.geometry || !sharedPrimitiveGeometrySet.has(mesh.geometry)) continue;
     if (!mesh.material || Array.isArray(mesh.material) || mesh.material.transparent || mesh.material.depthWrite === false) continue;
     if (mesh.onBeforeRender || mesh.morphTargetInfluences || mesh.isSkinnedMesh) continue;
-    const key = [mesh.geometry.uuid, mesh.material.uuid, mesh.castShadow ? 1 : 0, mesh.receiveShadow ? 1 : 0, mesh.renderOrder, mesh.layers.mask].join('|');
+    mesh.getWorldPosition(worldPosition);
+    const cellX = Math.floor(worldPosition.x / 48);
+    const cellZ = Math.floor(worldPosition.z / 48);
+    const key = [cellX, cellZ, mesh.geometry.uuid, mesh.material.uuid, mesh.castShadow ? 1 : 0, mesh.receiveShadow ? 1 : 0, mesh.renderOrder, mesh.layers.mask].join('|');
     if (!candidates.has(key)) candidates.set(key, []);
     candidates.get(key).push(mesh);
   }
@@ -6270,16 +6278,31 @@ function updateVehicleDust(dt) {
 }
 
 let npcSimulationAccumulator = 0;
+let environmentSimulationAccumulator = 0;
+let marinaSimulationAccumulator = 0;
+let interactionRefreshAccumulator = 0;
 let lastFollowButtonState = '';
+let lastRuntimeUiState = '';
 function update(dt) {
   let nearest = null, nearestDistance = Infinity;
-  updateDayNight(dt);
+  interactionRefreshAccumulator += dt;
+  const refreshInteractions = !isTouchDevice || interactionRefreshAccumulator >= 0.08;
+  if (refreshInteractions) interactionRefreshAccumulator = 0;
+  environmentSimulationAccumulator += dt;
+  if (!isTouchDevice || environmentSimulationAccumulator >= 1 / 15) {
+    updateDayNight(isTouchDevice ? environmentSimulationAccumulator : dt);
+    environmentSimulationAccumulator = 0;
+  }
   updateFishing(dt);
   updateVehicleDust(dt);
   updateVehicleWash(dt);
   updateCourierNetwork(dt);
   updateRoadRally(dt);
-  updateMarina(dt);
+  marinaSimulationAccumulator += dt;
+  if (!isTouchDevice || marinaSimulationAccumulator >= 1 / 30) {
+    updateMarina(isTouchDevice ? marinaSimulationAccumulator : dt);
+    marinaSimulationAccumulator = 0;
+  }
   updateBoatSalvage(dt);
   updateDive(dt);
   updateWorldDropPhysics(dt);
@@ -6480,56 +6503,58 @@ function update(dt) {
     if (entered) updateObjectives('enter');
     if (player.position.y > 4.35) updateObjectives('upstairs');
 
-    nearest = null; nearestDistance = Infinity;
-    const interactionPosition = inBoat ? marinaBoat.position : inVehicle ? vehicle.position : player.position;
-    for (const target of interactables) {
-      if(inBoat&&target.id!=='marina-boat')continue;
-      if (target.enabled && !target.enabled()) continue;
-      const dx = interactionPosition.x - target.x;
-      const dy = (inVehicle||inBoat ? 0 : player.position.y) - target.y;
-      const dz = interactionPosition.z - target.z;
-      const distance = Math.hypot(dx, dy * 1.25, dz);
-      if (distance < target.radius && distance < nearestDistance) {
-        nearest = target; nearestDistance = distance;
+    if (refreshInteractions) {
+      nearest = null; nearestDistance = Infinity;
+      const interactionPosition = inBoat ? marinaBoat.position : inVehicle ? vehicle.position : player.position;
+      for (const target of interactables) {
+        if(inBoat&&target.id!=='marina-boat')continue;
+        if (target.enabled && !target.enabled()) continue;
+        const dx = interactionPosition.x - target.x;
+        const dy = (inVehicle||inBoat ? 0 : player.position.y) - target.y;
+        const dz = interactionPosition.z - target.z;
+        const distance = Math.hypot(dx, dy * 1.25, dz);
+        if (distance < target.radius && distance < nearestDistance) {
+          nearest = target; nearestDistance = distance;
+        }
       }
-    }
-    currentTarget = nearest;
-    interaction.classList.toggle('hidden', !nearest || !!placementMode);
-    interactButton.classList.toggle('hidden', !nearest || !!placementMode);
-    if (nearest) setTextIfChanged(interactionText, nearest.label());
+      currentTarget = nearest;
+      interaction.classList.toggle('hidden', !nearest || !!placementMode);
+      interactButton.classList.toggle('hidden', !nearest || !!placementMode);
+      if (nearest) setTextIfChanged(interactionText, nearest.label());
 
-    if (player.position.y > 4.25) {
-      setTextIfChanged(locationLabel, 'UPPER FLOOR');
-    } else if (player.position.x < -12.5 && player.position.x > -27.5 && player.position.z < -1.1 && propertyUpgrades.studio > 0) {
-      setTextIfChanged(locationLabel, 'CREATIVE STUDIO');
-    } else if (player.position.x < -12.5 && player.position.x > -27.5 && player.position.z > -0.9 && propertyUpgrades.guestSuite > 0) {
-      setTextIfChanged(locationLabel, 'GUEST SUITE');
-    } else if (entered) {
-      setTextIfChanged(locationLabel, player.position.z > 1.8 ? 'ENTRANCE HALL' : player.position.x < -5.5 ? 'KITCHEN' : player.position.x > 3.0 ? 'DINING ROOM' : 'LIVING ROOM');
-    } else if (Math.hypot(player.position.x-44,player.position.z-218)<7.0) {
-      setTextIfChanged(locationLabel, 'NORTH SHOAL ISLAND');
-    } else if (player.position.z > 183 && player.position.x > 10 && player.position.x < 45) {
-      setTextIfChanged(locationLabel, 'HARBORFRONT MARINA');
-    } else if (player.position.z > 130 && player.position.z < 146 && player.position.x < -20 && player.position.x > -40) {
-      setTextIfChanged(locationLabel, 'NORTHSIDE AUTO SPA');
-    } else if (player.position.z > 143 && player.position.x < -7) {
-      setTextIfChanged(locationLabel, 'RIVERSIDE LOOKOUT');
-    } else if (player.position.z > 118 && player.position.x > 17 && player.position.x < 40) {
-      setTextIfChanged(locationLabel, 'NORTHSIDE FUEL');
-    } else if (player.position.z > 81 && player.position.x < -15) {
-      setTextIfChanged(locationLabel, 'CORNER CAFE');
-    } else if (player.position.z > 81 && player.position.x > 15 && player.position.x < 36) {
-      setTextIfChanged(locationLabel, 'TOWN MARKET');
-    } else if (player.position.z > 85 && player.position.x > 7 && player.position.x < 21) {
-      setTextIfChanged(locationLabel, 'TOWN PARK');
-    } else if (player.position.z > 50) {
-      setTextIfChanged(locationLabel, 'NEIGHBORHOOD');
-    } else if (player.position.z > 13) {
-      setTextIfChanged(locationLabel, 'FRONT GARDEN');
-    } else if (Math.abs(player.position.x) > 14 && player.position.z < 8) {
-      setTextIfChanged(locationLabel, 'POOL TERRACE');
-    } else {
-      setTextIfChanged(locationLabel, 'GARDEN');
+      if (player.position.y > 4.25) {
+        setTextIfChanged(locationLabel, 'UPPER FLOOR');
+      } else if (player.position.x < -12.5 && player.position.x > -27.5 && player.position.z < -1.1 && propertyUpgrades.studio > 0) {
+        setTextIfChanged(locationLabel, 'CREATIVE STUDIO');
+      } else if (player.position.x < -12.5 && player.position.x > -27.5 && player.position.z > -0.9 && propertyUpgrades.guestSuite > 0) {
+        setTextIfChanged(locationLabel, 'GUEST SUITE');
+      } else if (entered) {
+        setTextIfChanged(locationLabel, player.position.z > 1.8 ? 'ENTRANCE HALL' : player.position.x < -5.5 ? 'KITCHEN' : player.position.x > 3.0 ? 'DINING ROOM' : 'LIVING ROOM');
+      } else if (Math.hypot(player.position.x-44,player.position.z-218)<7.0) {
+        setTextIfChanged(locationLabel, 'NORTH SHOAL ISLAND');
+      } else if (player.position.z > 183 && player.position.x > 10 && player.position.x < 45) {
+        setTextIfChanged(locationLabel, 'HARBORFRONT MARINA');
+      } else if (player.position.z > 130 && player.position.z < 146 && player.position.x < -20 && player.position.x > -40) {
+        setTextIfChanged(locationLabel, 'NORTHSIDE AUTO SPA');
+      } else if (player.position.z > 143 && player.position.x < -7) {
+        setTextIfChanged(locationLabel, 'RIVERSIDE LOOKOUT');
+      } else if (player.position.z > 118 && player.position.x > 17 && player.position.x < 40) {
+        setTextIfChanged(locationLabel, 'NORTHSIDE FUEL');
+      } else if (player.position.z > 81 && player.position.x < -15) {
+        setTextIfChanged(locationLabel, 'CORNER CAFE');
+      } else if (player.position.z > 81 && player.position.x > 15 && player.position.x < 36) {
+        setTextIfChanged(locationLabel, 'TOWN MARKET');
+      } else if (player.position.z > 85 && player.position.x > 7 && player.position.x < 21) {
+        setTextIfChanged(locationLabel, 'TOWN PARK');
+      } else if (player.position.z > 50) {
+        setTextIfChanged(locationLabel, 'NEIGHBORHOOD');
+      } else if (player.position.z > 13) {
+        setTextIfChanged(locationLabel, 'FRONT GARDEN');
+      } else if (Math.abs(player.position.x) > 14 && player.position.z < 8) {
+        setTextIfChanged(locationLabel, 'POOL TERRACE');
+      } else {
+        setTextIfChanged(locationLabel, 'GARDEN');
+      }
     }
     }
     if (playerSeated) {
@@ -6546,20 +6571,22 @@ function update(dt) {
       setTextIfChanged(interactionText, currentTarget.label());setTextIfChanged(interactButton, 'E');
     } else if (inVehicle) {
       setTextIfChanged(locationLabel, vehicle.position.z > 183 && vehicle.position.x > 10 && vehicle.position.x < 45 ? 'DRIVING · HARBORFRONT MARINA' : vehicle.position.z > 130 && vehicle.position.z < 146 && vehicle.position.x < -20 && vehicle.position.x > -40 ? 'DRIVING · NORTHSIDE AUTO SPA' : vehicle.position.z > 143 && vehicle.position.x < -7 ? 'DRIVING · RIVERSIDE LOOKOUT' : vehicle.position.z > 118 && vehicle.position.x > 17 && vehicle.position.x < 40 ? 'DRIVING · NORTHSIDE FUEL' : vehicle.position.z > 50 ? 'DRIVING · NEIGHBORHOOD' : `DRIVING · ${currentVehicleName().toUpperCase()}`);
-      nearest = null; nearestDistance = Infinity;
-      for (const target of interactables) {
-        if (target.id !== 'fuel-stop' && target.id !== 'car-wash') continue;
-        if (target.enabled && !target.enabled()) continue;
-        const distance = Math.hypot(vehicle.position.x - target.x, vehicle.position.z - target.z);
-        if (distance < target.radius && distance < nearestDistance) { nearest = target; nearestDistance = distance; }
+      if (refreshInteractions) {
+        nearest = null; nearestDistance = Infinity;
+        for (const target of interactables) {
+          if (target.id !== 'fuel-stop' && target.id !== 'car-wash') continue;
+          if (target.enabled && !target.enabled()) continue;
+          const distance = Math.hypot(vehicle.position.x - target.x, vehicle.position.z - target.z);
+          if (distance < target.radius && distance < nearestDistance) { nearest = target; nearestDistance = distance; }
+        }
+        const vehicleTarget = interactables.find(target => target.id === 'vehicle') || null;
+        const serviceTarget = nearest;
+        currentTarget = serviceTarget || vehicleTarget;
+        interaction.classList.remove('hidden');
+        interactButton.classList.remove('hidden');
+        setTextIfChanged(interactionText, serviceTarget ? serviceTarget.label() : 'Keluar dari kendaraan');
+        setTextIfChanged(interactButton, 'E');
       }
-      const vehicleTarget = interactables.find(target => target.id === 'vehicle') || null;
-      const serviceTarget = nearest;
-      currentTarget = serviceTarget || vehicleTarget;
-      interaction.classList.remove('hidden');
-      interactButton.classList.remove('hidden');
-      setTextIfChanged(interactionText, serviceTarget ? serviceTarget.label() : 'Keluar dari kendaraan');
-      setTextIfChanged(interactButton, 'E');
     } else {
       setTextIfChanged(interactButton, 'E');
       seatActivityButton.classList.add('hidden');
@@ -6568,26 +6595,31 @@ function update(dt) {
   const canHandleWorldObjects = isStarted && !!handheldState.item && !playerSeated && !inVehicle && !inBoat && !divingState.active && !isUiOpen();
   const canDrive = isStarted && inVehicle && !isUiOpen();
   const canPilotBoat = isStarted && inBoat && !isUiOpen();
-  document.querySelector('#vehicle-desktop-hint').classList.toggle('hidden', !inVehicle);
-  document.querySelector('#boat-desktop-hint').classList.toggle('hidden', !inBoat);
-  document.querySelector('#dive-desktop-hint').classList.toggle('hidden',!divingState.active);
-  diveHud?.classList.toggle('hidden',!divingState.active);
-  if(boatRaceStartButton)boatRaceStartButton.classList.toggle('hidden',!inBoat||!isAtBoatRaceStart()||boatRaceState.phase==='running'||boatRaceState.phase==='finished');
-  document.querySelector('#desktop-hint').classList.toggle('hidden', inVehicle || inBoat || divingState.active);
-  vehicleHud.classList.toggle('hidden', !inVehicle);
-  boatHud.classList.toggle('hidden', !inBoat);
-  brakeButton.classList.toggle('hidden', !canDrive);
-  hornButton.classList.toggle('hidden', !canDrive);
-  lightsButton.classList.toggle('hidden', !canDrive);
-  boatBrakeButton.classList.toggle('hidden', !canPilotBoat);
-  jumpButton.classList.toggle('hidden', inVehicle || inBoat);
-  sprintButton.classList.toggle('hidden', inVehicle || inBoat);
-  if(divingState.active){setTextIfChanged(jumpButton, 'UP');setTextIfChanged(sprintButton, 'DOWN');}
-  else{setTextIfChanged(jumpButton, 'JUMP');setTextIfChanged(sprintButton, 'RUN');}
-  if (stickLabel) setTextIfChanged(stickLabel, inVehicle ? 'STEER · THROTTLE' : inBoat ? 'SAIL · STEER' : divingState.active ? 'SWIM · DIVE' : 'MOVE');
-  mobileActions.classList.toggle('driving-controls', inVehicle || inBoat || divingState.active);
-  dropButton.classList.toggle('hidden', !canHandleWorldObjects);
-  placeButton.classList.toggle('hidden', !canHandleWorldObjects);
+  const boatRaceButtonHidden = !inBoat || !isAtBoatRaceStart() || boatRaceState.phase === 'running' || boatRaceState.phase === 'finished';
+  const runtimeUiState = [inVehicle,inBoat,divingState.active,canHandleWorldObjects,canDrive,canPilotBoat,boatRaceButtonHidden].join(':');
+  if (runtimeUiState !== lastRuntimeUiState) {
+    vehicleDesktopHint.classList.toggle('hidden', !inVehicle);
+    boatDesktopHint.classList.toggle('hidden', !inBoat);
+    diveDesktopHint.classList.toggle('hidden',!divingState.active);
+    diveHud?.classList.toggle('hidden',!divingState.active);
+    if(boatRaceStartButton)boatRaceStartButton.classList.toggle('hidden',boatRaceButtonHidden);
+    desktopHint.classList.toggle('hidden', inVehicle || inBoat || divingState.active);
+    vehicleHud.classList.toggle('hidden', !inVehicle);
+    boatHud.classList.toggle('hidden', !inBoat);
+    brakeButton.classList.toggle('hidden', !canDrive);
+    hornButton.classList.toggle('hidden', !canDrive);
+    lightsButton.classList.toggle('hidden', !canDrive);
+    boatBrakeButton.classList.toggle('hidden', !canPilotBoat);
+    jumpButton.classList.toggle('hidden', inVehicle || inBoat);
+    sprintButton.classList.toggle('hidden', inVehicle || inBoat);
+    if(divingState.active){setTextIfChanged(jumpButton, 'UP');setTextIfChanged(sprintButton, 'DOWN');}
+    else{setTextIfChanged(jumpButton, 'JUMP');setTextIfChanged(sprintButton, 'RUN');}
+    if (stickLabel) setTextIfChanged(stickLabel, inVehicle ? 'STEER · THROTTLE' : inBoat ? 'SAIL · STEER' : divingState.active ? 'SWIM · DIVE' : 'MOVE');
+    mobileActions.classList.toggle('driving-controls', inVehicle || inBoat || divingState.active);
+    dropButton.classList.toggle('hidden', !canHandleWorldObjects);
+    placeButton.classList.toggle('hidden', !canHandleWorldObjects);
+    lastRuntimeUiState = runtimeUiState;
+  }
   const doorAngle = doorOpen ? 1.22 : 0;
   leftDoor.rotation.y = THREE.MathUtils.damp(leftDoor.rotation.y, -doorAngle, 5, dt);
   rightDoor.rotation.y = THREE.MathUtils.damp(rightDoor.rotation.y, doorAngle, 5, dt);
@@ -6725,7 +6757,7 @@ window.__estateDebug = () => ({
   started: isStarted,
   keys: [...keys],
   graphicsQuality, autoSaveEnabled, rendererFallbackActive,
-  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, viewDistance:camera.far, fogDistance:scene.fog.far, measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs, uiOpen:hasOpenPanel, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), staticBatching:{...staticBatchStats}, renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
+  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, viewDistance:camera.far, fogDistance:scene.fog.far, measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs, uiOpen:hasOpenPanel, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), staticBatching:{...staticBatchStats}, touchThrottles:{environmentHz:15,marinaHz:30,npcHz:30,interactionHz:12.5}, renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
   nearby: currentTarget?.id ?? null,
   floorHeight: getGroundHeight(player.position.x, player.position.z),
   objectives: { ...objectiveState },
@@ -6753,11 +6785,11 @@ function animate(timestamp) {
       adaptiveFrameTime += (frameDelta - adaptiveFrameTime) * 0.08;
       if (isTouchDevice && timestamp - lastAdaptiveResolutionUpdate > 2200) {
         lastAdaptiveResolutionUpdate = timestamp;
-        if (adaptiveFrameTime > 19.5 && adaptiveRenderScale > 0.70) {
-          adaptiveRenderScale = Math.max(0.70, adaptiveRenderScale - 0.08);
+        if (adaptiveFrameTime > 18.0 && adaptiveRenderScale > 0.66) {
+          adaptiveRenderScale = Math.max(0.66, adaptiveRenderScale - 0.10);
           updateRendererResolution();
-        } else if (adaptiveFrameTime < 15.8 && adaptiveRenderScale < 1) {
-          adaptiveRenderScale = Math.min(1, adaptiveRenderScale + 0.025);
+        } else if (adaptiveFrameTime < 14.8 && adaptiveRenderScale < 1) {
+          adaptiveRenderScale = Math.min(1, adaptiveRenderScale + 0.02);
           updateRendererResolution();
         }
       }

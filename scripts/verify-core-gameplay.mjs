@@ -67,11 +67,11 @@ check('Placement mode blocks player movement and exposes live debug state', () =
   assert.match(source, /placementActive: !!placementMode, placedDecorations:/);
 });
 check('Prototype 39 release metadata is consistent', () => {
-  assert.equal(pkg.version,'0.40.13');
-  assert.equal(lock.version,'0.40.13');
-  assert.equal(lock.packages[''].version,'0.40.13');
+  assert.equal(pkg.version,'0.40.14');
+  assert.equal(lock.version,'0.40.14');
+  assert.equal(lock.packages[''].version,'0.40.14');
   assert.match(html,/Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.13'));
+  assert.ok(html.includes('BUILD 0.40.14'));
   assert.match(readme,/Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 console.log(`\n${passed} core gameplay checks passed.`);

@@ -116,13 +116,13 @@ check('Runtime diagnostics show the item type, count, persistence and individual
 check('V18 save schema supports carried props and Prototype 39 metadata is synchronized', () => {
   assert.match(source, /version: 18/);
   assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
-  assert.equal(pkg.version, '0.40.13');
+  assert.equal(pkg.version, '0.40.14');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:objects/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.13'));
+  assert.ok(html.includes('BUILD 0.40.14'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

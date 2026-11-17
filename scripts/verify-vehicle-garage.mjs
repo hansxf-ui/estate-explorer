@@ -88,8 +88,8 @@ check('The service apron and interior count as paved surfaces to prevent garage 
 check('Diagnostics expose all vehicle tuning tiers, paint options and garage visibility; release metadata is synchronized',()=>{
  assert.match(source,/vehicleGarage:\{\.\.\.vehicleGarageState,visible:vehicleGarageGroup\.visible/);
  assert.match(source,/upgradeCosts:Object\.fromEntries/);
- assert.equal(pkg.version,'0.40.13');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.13'));
+ assert.equal(pkg.version,'0.40.14');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.14'));
  assert.match(readme,/Prototype 40\.3 — Estate Motor Garage & Vehicle Tuning/);
  assert.match(pkg.scripts['test:game'],/test:garage/);
 });
