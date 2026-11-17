@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { obbIntersectsAabb2D, obbIntersectsCircle2D, vehicleYawRate, isPavedRoadSurface } from './driving-physics.js';
+import { cafeLocalSupplyCatalog, planCafeLocalSupplyDelivery, consumeCafeBusinessStock } from './cafe-supply.js';
 
 const root = document.querySelector('#game');
 const loading = document.querySelector('#loading');
@@ -886,6 +887,16 @@ for(const patio of cafeUpgradeVisuals.patioTables){
   }
   patio.visible=false;
 }
+// Local deliveries appear as stocked produce crates in the back corner of the cafe.
+const cafeLocalSupplyCrates = Array.from({length:3},(_,index)=>{
+  const crate=group(neighborhoodCafe.shell,-7.15+(index===1?1.15:0),0,3.65+(index===2?1.0:0));
+  box(crate,0,0.23,0,0.92,0.46,0.78,mat(0x76563a,0.88));
+  for(const x of [-0.34,0,0.34])box(crate,x,0.24,0.405,0.075,0.42,0.035,mat(0xb28a59,0.78));
+  for(const x of [-0.34,0,0.34])box(crate,x,0.24,-0.405,0.075,0.42,0.035,mat(0xb28a59,0.78));
+  for(const x of [-0.34,0.34])for(const z of [-0.28,0.28])sphere(crate,x,0.49,z,0.17,mat(index===1?0xe18a45:index===2?0xc95567:0xc95545,0.72),8,6);
+  crate.visible=false;
+  return crate;
+});
 
 
 // Prototype 40.4 — Motor District showroom and a walk-up vehicle dealership.
@@ -1766,8 +1777,8 @@ let wallet = 650;
 const propertyUpgrades = { solar: 0, kitchen: 0, bedroom: 0, terrace: 0, studio: 0, guestSuite: 0 };
 const guestSuiteRental = { listing:false, tenantActive:false, tenantName:'', moveInDay:0, leaseEndDay:0, daysPaid:0, grossEarned:0, feesPaid:0, lifetimePaidDays:0, lifetimeGrossEarned:0, lifetimeFeesPaid:0, lastPaidDay:0 };
 const guestSuiteRentPerDay = 180;
-const cafeBusinessState = { owned:false, open:false, stock:0, reputation:0, espresso:0, patio:0, operatingDays:0, lifetimeSales:0, lifetimeOperatingCosts:0, lastOperatedDay:0, lastProfit:0, lastCustomers:0 };
-const cafeBusinessConfig = { licenseCost:3600, restockCost:180, restockUnits:12, stockCapacity:48, dailyStockUse:3, upgradeCosts:{espresso:[750,1150,1650],patio:[950,1450,2050]}, upgradeBonuses:{espresso:[28,42,58],patio:[22,36,52]} };
+const cafeBusinessState = { owned:false, open:false, stock:0, localStock:0, localDeliveries:0, lifetimeLocalServings:0, lastLocalServings:0, reputation:0, espresso:0, patio:0, operatingDays:0, lifetimeSales:0, lifetimeOperatingCosts:0, lastOperatedDay:0, lastProfit:0, lastCustomers:0 };
+const cafeBusinessConfig = { licenseCost:3600, restockCost:180, restockUnits:12, stockCapacity:48, localStockCapacity:24, dailyStockUse:3, localSalesBonusPerServing:5, upgradeCosts:{espresso:[750,1150,1650],patio:[950,1450,2050]}, upgradeBonuses:{espresso:[28,42,58],patio:[22,36,52]} };
 const guestSuiteManagementFee = 25;
 let lifetimeIncome = 0;
 let lifetimeSpending = 0;
@@ -2669,6 +2680,7 @@ function cafeBusinessUpgradeCost(type){
 function syncCafeBusinessVisuals(){
   cafeUpgradeVisuals.espressoMachine.visible=cafeBusinessState.espresso>0;
   cafeUpgradeVisuals.patioTables.forEach((object,index)=>{object.visible=cafeBusinessState.patio>index;});
+  cafeLocalSupplyCrates.forEach((crate,index)=>{crate.visible=cafeBusinessState.owned&&cafeBusinessState.localStock>index*8;});
 }
 function syncCafeBusinessSign(){
   syncCafeBusinessVisuals();
@@ -2685,28 +2697,59 @@ function renderCafeBusinessPanel(){
   const restock=document.querySelector('#cafe-business-restock');
   const toggle=document.querySelector('#cafe-business-toggle');
   const upgrades=document.querySelector('#cafe-business-upgrades');
-  if(!badge||!copy||!stats||!license||!restock||!toggle||!upgrades)return;
+  const localSupplyList=document.querySelector('#cafe-local-supply-list');
+  const localStockLabel=document.querySelector('#cafe-local-supply-stock');
+  if(!badge||!copy||!stats||!license||!restock||!toggle||!upgrades||!localSupplyList||!localStockLabel)return;
   const owned=cafeBusinessState.owned;
-  const ready=cafeBusinessState.stock>=cafeBusinessConfig.dailyStockUse;
+  const totalStock=cafeBusinessState.stock+cafeBusinessState.localStock;
+  const ready=totalStock>=cafeBusinessConfig.dailyStockUse;
   badge.textContent=!owned?'NOT OWNED':cafeBusinessState.open?(ready?'OPEN · SERVING':'OPEN · LOW STOCK'):'OWNED · CLOSED';
   copy.textContent=!owned
-    ?'Purchase Corner Cafe for $3,600. Manage supplies, daily service, reputation and equipment from your Work & Finance board.'
-    :cafeBusinessState.open?(ready?'The cafe is operating. It serves customers automatically at 07:00 each game day.':'The cafe is open but needs at least 3 servings before the next business day.')
-    :'The cafe is closed. Restock supplies, upgrade equipment, then open to start earning daily sales.';
+    ?'Purchase Corner Cafe for $3,600. Then connect your Estate Garden and Artisan Workshop to supply the cafe locally.'
+    :cafeBusinessState.open?(ready?'The cafe is operating. Local produce is used before wholesale stock at 07:00 each game day.':'The cafe is short on supplies. Restock wholesale or deliver goods from your estate.')
+    :'The cafe is closed. Restock wholesale supplies or deliver farm goods, then open to start earning daily sales.';
   stats.replaceChildren();
   const values=owned?[
-    ['AVAILABLE STOCK',`${cafeBusinessState.stock}/${cafeBusinessConfig.stockCapacity} SERVINGS`],
+    ['WHOLESALE STOCK',`${cafeBusinessState.stock}/${cafeBusinessConfig.stockCapacity} SERVINGS`],
+    ['LOCAL FARM STOCK',`${cafeBusinessState.localStock}/${cafeBusinessConfig.localStockCapacity} SERVINGS`],
+    ['TOTAL AVAILABLE',`${totalStock} SERVINGS`],
+    ['LOCAL DELIVERIES',String(cafeBusinessState.localDeliveries)],
+    ['LOCAL SERVINGS USED',String(cafeBusinessState.lifetimeLocalServings)],
     ['LOCAL REPUTATION',`${cafeBusinessState.reputation}/10 ★`],
     ['DAYS OPERATED',String(cafeBusinessState.operatingDays)],
+    ['LAST LOCAL SERVINGS',String(cafeBusinessState.lastLocalServings)],
     ['LAST OPERATING MARGIN',cafeBusinessState.lastOperatedDay?`${cafeBusinessState.lastProfit>=0?'+':'−'}$${Math.abs(cafeBusinessState.lastProfit).toLocaleString('en-US')}`:'--'],
     ['LIFETIME SALES',`$${cafeBusinessState.lifetimeSales.toLocaleString('en-US')}`],
     ['LIFETIME OPERATING COSTS',`$${cafeBusinessState.lifetimeOperatingCosts.toLocaleString('en-US')}`],
     ['LAST CUSTOMERS',cafeBusinessState.lastOperatedDay?String(cafeBusinessState.lastCustomers):'--']
-  ]:[['BUSINESS LICENSE','$3,600'],['RESTOCK BATCH','12 SERVINGS · $180'],['DAILY SERVICE','07:00 GAME TIME'],['BUSINESS MODEL','RETAIL · FOOD & DRINK']];
+  ]:[['BUSINESS LICENSE','$3,600'],['WHOLESALE RESTOCK','12 SERVINGS · $180'],['LOCAL SOURCING','6 FARM & WORKSHOP GOODS'],['DAILY SERVICE','07:00 GAME TIME']];
   for(const [label,value] of values){const card=document.createElement('div');const small=document.createElement('small');small.textContent=label;const strong=document.createElement('b');strong.textContent=value;card.append(small,strong);stats.append(card);}
   license.classList.toggle('hidden',owned);license.textContent=`BUY BUSINESS LICENSE · $${cafeBusinessConfig.licenseCost.toLocaleString('en-US')}`;license.disabled=owned||wallet<cafeBusinessConfig.licenseCost;
-  restock.classList.toggle('hidden',!owned);restock.textContent=`RESTOCK ×${cafeBusinessConfig.restockUnits} · $${cafeBusinessConfig.restockCost}`;restock.disabled=!owned||cafeBusinessState.stock+cafeBusinessConfig.restockUnits>cafeBusinessConfig.stockCapacity||wallet<cafeBusinessConfig.restockCost;
+  restock.classList.toggle('hidden',!owned);restock.textContent=`RESTOCK WHOLESALE ×${cafeBusinessConfig.restockUnits} · $${cafeBusinessConfig.restockCost}`;restock.disabled=!owned||cafeBusinessState.stock+cafeBusinessConfig.restockUnits>cafeBusinessConfig.stockCapacity||wallet<cafeBusinessConfig.restockCost;
   toggle.classList.toggle('hidden',!owned);toggle.textContent=cafeBusinessState.open?'CLOSE BUSINESS':'OPEN BUSINESS';toggle.disabled=!owned||(!cafeBusinessState.open&&!ready);
+  localStockLabel.textContent=`${cafeBusinessState.localStock}/${cafeBusinessConfig.localStockCapacity}`;
+  localSupplyList.replaceChildren();
+  if(!owned){const note=document.createElement('p');note.className='cafe-local-supply-locked';note.textContent='LOCKED · Purchase the Corner Cafe license to start delivering Estate Garden harvests and Artisan Workshop goods.';localSupplyList.append(note);}
+  else for(const supply of cafeLocalSupplyCatalog){
+    const count=Math.max(0,Math.floor(Number(inventory[supply.item])||0));
+    const skillLevel=skillProgress(supply.skill).level;
+    const opportunityCost=supply.quantity*Math.round(supply.marketUnitValue*(1+(skillLevel-1)*supply.skillBonus));
+    const wholesaleValue=Math.round(supply.servings*cafeBusinessConfig.restockCost/cafeBusinessConfig.restockUnits);
+    const menuPremium=supply.servings*cafeBusinessConfig.localSalesBonusPerServing;
+    const estimatedAdvantage=wholesaleValue+menuPremium-opportunityCost;
+    const card=document.createElement('article');card.className='cafe-local-supply-card';
+    const icon=document.createElement('span');icon.className='cafe-local-supply-icon';icon.textContent=supply.icon;
+    const info=document.createElement('div');info.className='cafe-local-supply-info';
+    const heading=document.createElement('b');heading.textContent=supply.inputName;
+    const detail=document.createElement('small');detail.textContent=`${supply.source} · NEED ${supply.quantity} · OWNED ${count} · +${supply.servings} LOCAL SERVINGS`;
+    const value=document.createElement('small');value.className='cafe-local-supply-value';value.textContent=`MARKET VALUE $${opportunityCost} · CAFE VALUE $${wholesaleValue+menuPremium} · ${estimatedAdvantage>=0?'+':''}$${estimatedAdvantage} EST. ADVANTAGE`;
+    info.append(heading,detail,value);
+    const button=document.createElement('button');button.type='button';button.dataset.cafeSupply=supply.key;
+    const hasCapacity=cafeBusinessState.localStock+supply.servings<=cafeBusinessConfig.localStockCapacity;
+    button.textContent=!hasCapacity?'STORAGE FULL':count<supply.quantity?`NEED ${supply.quantity-count} MORE`:`DELIVER ×${supply.quantity}`;
+    button.disabled=!hasCapacity||count<supply.quantity;
+    card.append(icon,info,button);localSupplyList.append(card);
+  }
   upgrades.classList.toggle('hidden',!owned);upgrades.replaceChildren();
   if(owned){
     const definitions=[
@@ -2742,10 +2785,27 @@ function restockCafeBusiness(){
   recordTransaction('Corner Cafe · wholesale supplies ×12',-cafeBusinessConfig.restockCost);setWallet(wallet);
   renderCafeBusinessPanel();renderWorkFinancePanel();saveGame(false);showToast(`PERSEDIAAN CAFE BERTAMBAH · ${cafeBusinessState.stock} SERVINGS`);
 }
+function deliverCafeLocalSupply(supplyKey){
+  if(!cafeBusinessState.owned){showToast('BELI LISENSI CORNER CAFE TERLEBIH DAHULU');return;}
+  const delivery=planCafeLocalSupplyDelivery({supplyKey,inventory,localStock:cafeBusinessState.localStock,capacity:cafeBusinessConfig.localStockCapacity});
+  if(!delivery.ok){
+    if(delivery.reason==='insufficient-inventory')showToast(`STOK ${delivery.supply?.inputName?.toUpperCase()||'BAHAN'} BELUM CUKUP · BUTUH ${delivery.required}`);
+    else if(delivery.reason==='capacity-exceeded')showToast(`GUDANG CAFE HAMPIR PENUH · SISA ${delivery.freeSpace} SLOT`);
+    else showToast('JENIS PASOKAN TIDAK DIKENAL');
+    return;
+  }
+  inventory[delivery.supply.item]=delivery.remainingInventory;
+  cafeBusinessState.localStock=delivery.nextLocalStock;
+  cafeBusinessState.localDeliveries++;
+  renderInventory();renderCafeBusinessPanel();renderWorkFinancePanel();
+  if(!districtPanel.classList.contains('hidden'))renderDistrictStore();
+  saveGame(false);
+  showToast(`${delivery.supply.inputName.toUpperCase()} DIKIRIM KE CORNER CAFE · +${delivery.deliveredServings} LOCAL SERVINGS`);
+}
 function toggleCafeBusiness(){
   if(!cafeBusinessState.owned)return;
   if(cafeBusinessState.open){cafeBusinessState.open=false;showToast('CORNER CAFE DITUTUP · OPERASIONAL DIHENTIKAN');}
-  else if(cafeBusinessState.stock<cafeBusinessConfig.dailyStockUse){showToast('RESTOCK MINIMAL 3 SERVINGS SEBELUM MEMBUKA CAFE');return;}
+  else if(cafeBusinessState.stock+cafeBusinessState.localStock<cafeBusinessConfig.dailyStockUse){showToast('RESTOCK WHOLESALE ATAU KIRIM MINIMAL 3 LOCAL SERVINGS');return;}
   else{cafeBusinessState.open=true;showToast('CORNER CAFE DIBUKA · PENJUALAN DIMULAI PADA 07:00 GAME TIME');}
   renderCafeBusinessPanel();renderWorkFinancePanel();saveGame(false);
 }
@@ -2762,21 +2822,24 @@ function upgradeCafeBusiness(type){
 function processCafeBusinessDay(day){
   if(!cafeBusinessState.owned||!cafeBusinessState.open||cafeBusinessState.lastOperatedDay===day)return false;
   cafeBusinessState.lastOperatedDay=day;
-  if(cafeBusinessState.stock<cafeBusinessConfig.dailyStockUse){
-    cafeBusinessState.open=false;cafeBusinessState.lastProfit=0;cafeBusinessState.lastCustomers=0;
+  const stockUse=consumeCafeBusinessStock({wholesaleStock:cafeBusinessState.stock,localStock:cafeBusinessState.localStock,dailyStockUse:cafeBusinessConfig.dailyStockUse});
+  if(!stockUse.ok){
+    cafeBusinessState.open=false;cafeBusinessState.lastProfit=0;cafeBusinessState.lastCustomers=0;cafeBusinessState.lastLocalServings=0;
     showToast('CORNER CAFE KEHABISAN STOK · OPERASIONAL DITUTUP OTOMATIS');renderCafeBusinessPanel();return true;
   }
-  cafeBusinessState.stock-=cafeBusinessConfig.dailyStockUse;
-  const customers=20+cafeBusinessState.reputation*2+cafeBusinessState.espresso*4+cafeBusinessState.patio*5;
-  const gross=185+cafeBusinessState.reputation*12+cafeBusinessConfig.upgradeBonuses.espresso.slice(0,cafeBusinessState.espresso).reduce((a,b)=>a+b,0)+cafeBusinessConfig.upgradeBonuses.patio.slice(0,cafeBusinessState.patio).reduce((a,b)=>a+b,0);
+  cafeBusinessState.stock=stockUse.nextWholesaleStock;
+  cafeBusinessState.localStock=stockUse.nextLocalStock;
+  const localMenuBonus=stockUse.localUsed*cafeBusinessConfig.localSalesBonusPerServing;
+  const customers=20+cafeBusinessState.reputation*2+cafeBusinessState.espresso*4+cafeBusinessState.patio*5+(stockUse.localUsed>0?4:0);
+  const gross=185+cafeBusinessState.reputation*12+cafeBusinessConfig.upgradeBonuses.espresso.slice(0,cafeBusinessState.espresso).reduce((a,b)=>a+b,0)+cafeBusinessConfig.upgradeBonuses.patio.slice(0,cafeBusinessState.patio).reduce((a,b)=>a+b,0)+localMenuBonus;
   const operatingCost=42+cafeBusinessState.espresso*4+cafeBusinessState.patio*6;
   const profit=gross-operatingCost;
   wallet+=gross;recordTransaction('Corner Cafe · daily sales',gross,day,'07:00');
   wallet-=operatingCost;recordTransaction('Corner Cafe · staff & utilities',-operatingCost,day,'07:00');
-  cafeBusinessState.operatingDays++;cafeBusinessState.lifetimeSales+=gross;cafeBusinessState.lifetimeOperatingCosts+=operatingCost;cafeBusinessState.lastProfit=profit;cafeBusinessState.lastCustomers=customers;
+  cafeBusinessState.operatingDays++;cafeBusinessState.lifetimeSales+=gross;cafeBusinessState.lifetimeOperatingCosts+=operatingCost;cafeBusinessState.lastProfit=profit;cafeBusinessState.lastCustomers=customers;cafeBusinessState.lastLocalServings=stockUse.localUsed;cafeBusinessState.lifetimeLocalServings+=stockUse.localUsed;
   cafeBusinessState.reputation=clamp(cafeBusinessState.reputation+1,0,10);
   setWallet(wallet);renderCafeBusinessPanel();
-  showToast(`CORNER CAFE DAY ${day} · ${customers} CUSTOMERS · OPERATING MARGIN +$${profit.toLocaleString('en-US')}`);
+  showToast(`CORNER CAFE DAY ${day} · ${customers} CUSTOMERS · ${stockUse.localUsed} LOCAL SERVINGS · OPERATING MARGIN +$${profit.toLocaleString('en-US')}`);
   return true;
 }
 
@@ -3873,7 +3936,7 @@ function renderDistrictStore() {
   if(cafe){
     const card=document.createElement('article');card.className='cafe-store-business-card';
     const info=document.createElement('div');const title=document.createElement('b');title.textContent=cafeBusinessState.owned?'YOUR CORNER CAFE':'OWN THIS BUSINESS';
-    const desc=document.createElement('p');desc.textContent=cafeBusinessState.owned?`Your cafe is ${cafeBusinessState.open?'open':'closed'} · ${cafeBusinessState.stock} servings in stock · ${cafeBusinessState.operatingDays} operating days.`:'Buy the storefront and manage daily sales, supplies, reputation and equipment.';info.append(title,desc);
+    const desc=document.createElement('p');desc.textContent=cafeBusinessState.owned?`Your cafe is ${cafeBusinessState.open?'open':'closed'} · ${cafeBusinessState.stock+cafeBusinessState.localStock} servings ready (${cafeBusinessState.localStock} locally sourced) · ${cafeBusinessState.operatingDays} operating days.`:'Buy the storefront and manage daily sales, supplies, reputation and equipment.';info.append(title,desc);
     const manage=document.createElement('button');manage.type='button';manage.className='district-buy-btn';manage.textContent='OPEN BUSINESS BOARD';manage.addEventListener('click',openWorkFinancePanel);card.append(info,manage);districtProductList.append(card);
   }
   document.querySelector('#district-wallet').textContent='$'+wallet.toLocaleString('en-US');
@@ -3958,6 +4021,7 @@ document.querySelector('#cafe-business-license').addEventListener('click',buyCaf
 document.querySelector('#cafe-business-restock').addEventListener('click',restockCafeBusiness);
 document.querySelector('#cafe-business-toggle').addEventListener('click',toggleCafeBusiness);
 document.querySelector('#cafe-business-upgrades').addEventListener('click',event=>{const button=event.target.closest('[data-cafe-upgrade]');if(button)upgradeCafeBusiness(button.dataset.cafeUpgrade);});
+document.querySelector('#cafe-local-supply-list').addEventListener('click',event=>{const button=event.target.closest('[data-cafe-supply]');if(button)deliverCafeLocalSupply(button.dataset.cafeSupply);});
 document.querySelector('#garage-build').addEventListener('click',buildVehicleGarage);
 document.querySelector('#dealer-buy-bike').addEventListener('click',purchaseMotorcycle);
 document.querySelectorAll('[data-buy]').forEach(button => button.addEventListener('click', () => buyDecor(button.dataset.buy)));
@@ -5350,6 +5414,10 @@ function loadGame(notify = true) {
     cafeBusinessState.owned=!!savedCafeBusiness.owned;
     cafeBusinessState.open=cafeBusinessState.owned&&!!savedCafeBusiness.open;
     cafeBusinessState.stock=clamp(Math.floor(Number(savedCafeBusiness.stock)||0),0,cafeBusinessConfig.stockCapacity);
+    cafeBusinessState.localStock=cafeBusinessState.owned?clamp(Math.floor(Number(savedCafeBusiness.localStock)||0),0,cafeBusinessConfig.localStockCapacity):0;
+    cafeBusinessState.localDeliveries=clamp(Math.floor(Number(savedCafeBusiness.localDeliveries)||0),0,9999999);
+    cafeBusinessState.lifetimeLocalServings=clamp(Math.floor(Number(savedCafeBusiness.lifetimeLocalServings)||0),0,999999999);
+    cafeBusinessState.lastLocalServings=clamp(Math.floor(Number(savedCafeBusiness.lastLocalServings)||0),0,cafeBusinessConfig.dailyStockUse);
     cafeBusinessState.reputation=clamp(Math.floor(Number(savedCafeBusiness.reputation)||0),0,10);
     cafeBusinessState.espresso=clamp(Math.floor(Number(savedCafeBusiness.espresso)||0),0,3);
     cafeBusinessState.patio=clamp(Math.floor(Number(savedCafeBusiness.patio)||0),0,3);
@@ -5359,7 +5427,7 @@ function loadGame(notify = true) {
     cafeBusinessState.lastOperatedDay=clamp(Math.floor(Number(savedCafeBusiness.lastOperatedDay)||0),0,9999999);
     cafeBusinessState.lastProfit=clamp(Math.floor(Number(savedCafeBusiness.lastProfit)||0),-999999,999999);
     cafeBusinessState.lastCustomers=clamp(Math.floor(Number(savedCafeBusiness.lastCustomers)||0),0,9999);
-    if(!cafeBusinessState.owned)Object.assign(cafeBusinessState,{open:false,stock:0,reputation:0,espresso:0,patio:0});
+    if(!cafeBusinessState.owned)Object.assign(cafeBusinessState,{open:false,stock:0,localStock:0,localDeliveries:0,lifetimeLocalServings:0,lastLocalServings:0,reputation:0,espresso:0,patio:0});
     applyPropertyUpgradeVisuals();
     lifetimeIncome = Math.max(0, Math.floor(Number(data.lifetimeIncome) || 0));
     lifetimeSpending = Math.max(0, Math.floor(Number(data.lifetimeSpending) || 0));
@@ -6512,7 +6580,7 @@ window.__estateDebug = () => ({
   economy: { lifetimeIncome, lifetimeSpending, recentTransactions: transactionHistory.slice(0,12).map(entry => ({ ...entry })) },
   workContracts: { day: workLimitDay, courier: courierShiftsToday, garden: gardenShiftsToday, freelance: careerShiftsToday, courierPhase: jobPhase, gardenPhase: gardenJobPhase },
   cityExpress: {day:courierNetworkState.day,phase:courierNetworkState.phase,routeIndex:courierNetworkState.routeIndex,route:currentCourierNetworkRoute()?{...currentCourierNetworkRoute()}:null,elapsed:courierNetworkState.elapsed,acceptedToday:courierNetworkState.acceptedToday,completedTotal:courierNetworkState.completedTotal,lastReward:courierNetworkState.lastReward,bestTime:courierNetworkState.bestTime,markerVisible:courierNetworkMarker.group.visible,vehicle:selectedVehicleType,vehiclePosition:vehicle.position.toArray()},
-  cafeBusiness: {...cafeBusinessState,config:{...cafeBusinessConfig},nextUpgrade:{espresso:cafeBusinessUpgradeCost('espresso'),patio:cafeBusinessUpgradeCost('patio')},signSubtitle:cafeBusinessState.owned?(cafeBusinessState.open?'OWNER OPERATED · OPEN':'PLAYER OWNED · CLOSED'):'COFFEE · BAKERY'},
+  cafeBusiness: {...cafeBusinessState,config:{...cafeBusinessConfig},localSupply:{capacity:cafeBusinessConfig.localStockCapacity,options:cafeLocalSupplyCatalog.map(supply=>({...supply,owned:inventory[supply.item]||0})),cratesVisible:cafeLocalSupplyCrates.map(crate=>crate.visible)},nextUpgrade:{espresso:cafeBusinessUpgradeCost('espresso'),patio:cafeBusinessUpgradeCost('patio')},signSubtitle:cafeBusinessState.owned?(cafeBusinessState.open?'OWNER OPERATED · OPEN':'PLAYER OWNED · CLOSED'):'COFFEE · BAKERY'},
   roadRally: {phase:roadRallyState.phase,elapsed:roadRallyState.elapsed,checkpoint:roadRallyState.checkpoint,totalCheckpoints:roadRallyCourse.checkpoints.length,bestTime:roadRallyState.bestTime,lastTime:roadRallyState.lastTime,rewardDay:roadRallyState.rewardDay,completed:roadRallyState.completed,lastTier:roadRallyState.lastTier,start:roadRallyCourse.start,checkpoints:roadRallyCourse.checkpoints.map(point=>({x:point.x,z:point.z,label:point.label})),atStart:isAtRoadRallyStart(),startButtonBound:!!roadRallyStartButton,startButtonVisible:!!roadRallyStartButton&&!roadRallyStartButton.classList.contains('hidden'),pavedLoop:roadRallyCourse.checkpoints.every(point=>Math.abs(point.x)===43&&[127,176].includes(point.z))},
   farming: { selectedSeed:farmState.selectedSeed, plots:farmState.plots.map((plot,index)=>({index,crop:plot.crop,watered:!!plot.wateredAt,stage:plot.stage,progress:Math.round(farmPlotProgress(index)*100),ready:plot.stage>=3,wateredAt:plot.wateredAt})), seedStock:Object.fromEntries(Object.values(farmCropDefinitions).map(crop=>[crop.key,inventory[crop.seedItem]||0])), harvestStock:Object.fromEntries(Object.values(farmCropDefinitions).map(crop=>[crop.key,inventory[crop.harvestItem]||0])), workshop:{...farmWorkshopState,remainingMinutes:farmWorkshopRemaining(),visible:farmWorkshopGroup.visible}, recipes:Object.fromEntries(Object.values(farmRecipeDefinitions).map(recipe=>[recipe.key,{input:inventory[recipe.inputItem]||0,output:inventory[recipe.outputItem]||0,salePrice:recipe.salePrice}])), seedBoard:[farmBoard.position.x,farmBoard.position.z] },
   property: { upgrades: { ...propertyUpgrades }, dailyBill: propertyDailyBill(), rental: { ...guestSuiteRental, rentPerDay:guestSuiteRentPerDay, managementFee:guestSuiteManagementFee, netPerDay:guestSuiteRentPerDay-guestSuiteManagementFee, unlocked:propertyUpgrades.guestSuite>=2 }, visibleRenovations: Object.keys(propertyUpgradeObjects), terraceSeatsUnlocked: propertyUpgrades.terrace > 0 ? seatingSpots.filter(seat => seat.requiresUpgrade === 'terrace').length : 0, expansionRooms: [propertyUpgrades.studio > 0 ? 'studio' : null, propertyUpgrades.guestSuite > 0 ? 'guestSuite' : null].filter(Boolean), activeRoom: player.position.x < -12.5 && player.position.x > -27.5 && player.position.z < -1.1 && propertyUpgrades.studio > 0 ? 'studio' : player.position.x < -12.5 && player.position.x > -27.5 && player.position.z > -0.9 && propertyUpgrades.guestSuite > 0 ? 'guestSuite' : null, collisionLayout: { baseWestWallActive: colliders.includes(westWallCollider), propertyWalls: colliders.filter(c => c.propertyExpansion).map(c => ({ minX:c.minX,maxX:c.maxX,minZ:c.minZ,maxZ:c.maxZ })), atStudioDoor: collides(-12.0,-5.2), atGuestDoor: collides(-12.0,4.9), inStudio: collides(-20,-5.2), studioInterior: collides(-20,-5.2), studioOuterWall: collides(-27.5,-5.2), guestInterior: collides(-20,3.4), guestOuterWall: collides(-27.5,3.4) } },

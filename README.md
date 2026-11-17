@@ -1,3 +1,11 @@
+## Prototype 40.8 — Corner Cafe Farm-to-Table Supply Chain
+- Connected Estate Garden and the Artisan Workshop to the player-owned Corner Cafe. Owners can deliver six existing inventory goods directly from the Work & Finance business board: fresh tomatoes, carrots and strawberries, plus Tomato Preserve, Carrot Juice and Strawberry Jam.
+- Each delivery consumes the defined quantity from the player's inventory and adds a distinct batch of local servings. The cafe has 24 local-serving storage slots, separate from its 48 wholesale-serving capacity. Deliveries are rejected safely when the player lacks goods or storage space.
+- At the 07:00 operating checkpoint, local servings are consumed first, then wholesale stock covers any remaining daily demand. Each locally sourced serving adds $5 to that day's sales, and an operation day using local stock attracts four additional customers.
+- Added a live supply dashboard with owned quantities, required delivery quantities, local storage, market opportunity cost, wholesale replacement value and estimated cafe-value advantage. Physical produce crates appear inside the cafe as local stock is delivered and are restored from saves.
+- Local deliveries, local inventory, lifetime local servings and the most recent local-serving count are saved as optional fields in the existing V18 payload. The save schema remains V18; older V3–V18 saves safely initialize the new local supply chain as empty without disturbing existing businesses, inventory or progression.
+- Added a standalone, directly tested supply-planning and stock-consumption module, new business diagnostics and an aggregate integration suite. Existing wholesale restocking, espresso/patio upgrades, daily finance ledger, customer reputation and automatic stockout closure remain intact.
+
 ## Prototype 40.7 — Corner Cafe Ownership & Business Management
 - Added a player-owned Corner Cafe business that can be purchased from the Work & Finance board for $3,600. The physical storefront sign now reflects ownership and operating status.
 - Added wholesale inventory management: each restock costs $180 for 12 servings, with 48 servings maximum. An open cafe consumes three servings per operating day.

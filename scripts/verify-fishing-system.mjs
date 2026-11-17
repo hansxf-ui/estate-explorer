@@ -79,9 +79,9 @@ check('Fishing timer updates on the main frame loop and runtime debug exposes fi
   assert.match(source,/function update\(dt\) \{[\s\S]*?updateDayNight\(dt\);\s*updateFishing\(dt\);/);
   assert.match(source,/fishing: \{ phase: fishingState\.phase, catches: fishingState\.catches, lastCatch: fishingState\.lastCatch, storedFish: fishStockValue\(\) \}/);
 });
-check('The release metadata and notes identify the 0.40.7 fishing milestone',()=>{
-  assert.equal(pkg.version,'0.40.7');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.7'));assert.match(readme,/Prototype 39\.4 — Harborfront Fishing & Fish Market/);
+check('The release metadata and notes identify the 0.40.8 fishing milestone',()=>{
+  assert.equal(pkg.version,'0.40.8');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.8'));assert.match(readme,/Prototype 39\.4 — Harborfront Fishing & Fish Market/);
   assert.match(pkg.scripts['test:game'],/test:fishing/);
 });
 console.log(`\n${passed} Harborfront fishing and fish market checks passed.`);

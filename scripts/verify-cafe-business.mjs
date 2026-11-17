@@ -17,7 +17,7 @@ check('Startup retries WebGL with a low-power no-antialias renderer if the prima
   assert.match(source,/rendererFallbackActive,/);
 });
 check('Work & Finance contains a dedicated Corner Cafe business management section',()=>{
-  for(const id of ['cafe-business-section','cafe-business-status','cafe-business-copy','cafe-business-stats','cafe-business-license','cafe-business-restock','cafe-business-toggle','cafe-business-upgrades'])assert.ok(html.includes(`id="${id}"`));
+  for(const id of ['cafe-business-section','cafe-business-status','cafe-business-copy','cafe-business-stats','cafe-business-license','cafe-business-restock','cafe-business-toggle','cafe-business-upgrades','cafe-local-supply-list','cafe-local-supply-stock'])assert.ok(html.includes(`id="${id}"`));
   assert.match(source,/renderCafeBusinessPanel\(\)/);
   assert.match(source,/renderCafeBusinessPanel\(\);\n  const cap = document\.querySelector\('#work-shift-summary'\)/);
 });
@@ -42,7 +42,7 @@ check('Players can buy the Corner Cafe license once for $3,600 and the purchase 
   assert.match(source,/recordTransaction\('Corner Cafe · business license',-cafeBusinessConfig\.licenseCost\)/);
 });
 check('Wholesale restocking adds 12 servings, costs $180 and cannot exceed 48 servings',()=>{
-  assert.match(source,/restockCost:180, restockUnits:12, stockCapacity:48, dailyStockUse:3/);
+  assert.match(source,/restockCost:180, restockUnits:12, stockCapacity:48, localStockCapacity:24, dailyStockUse:3/);
   assert.match(source,/function restockCafeBusiness\(\)/);
   assert.match(source,/cafeBusinessState\.stock\+cafeBusinessConfig\.restockUnits>cafeBusinessConfig\.stockCapacity/);
   assert.match(source,/recordTransaction\('Corner Cafe · wholesale supplies ×12',-cafeBusinessConfig\.restockCost\)/);
@@ -55,8 +55,9 @@ check('The owner dashboard shows lifetime revenue, operating costs, current stoc
 });
 check('Opening requires enough stock, closing is immediate, and all actions save',()=>{
   assert.match(source,/function toggleCafeBusiness\(\)/);
+  assert.match(source,/const totalStock=cafeBusinessState\.stock\+cafeBusinessState\.localStock/);
   assert.match(source,/if\(cafeBusinessState\.open\)\{cafeBusinessState\.open=false/);
-  assert.match(source,/cafeBusinessState\.stock<cafeBusinessConfig\.dailyStockUse/);
+  assert.match(source,/cafeBusinessState\.stock\+cafeBusinessState\.localStock<cafeBusinessConfig\.dailyStockUse/);
   assert.match(source,/OPEN BUSINESS/);
   assert.match(source,/CLOSE BUSINESS/);
 });
@@ -67,7 +68,7 @@ check('The cafe processes once at the 07:00 daily rollover and guards against du
   assert.match(source,/processCafeBusinessDay\(day\) \|\| cafeBusinessChanged/);
 });
 check('Daily operations consume stock, increase reputation and compute sales from upgrades',()=>{
-  assert.match(source,/cafeBusinessState\.stock-=cafeBusinessConfig\.dailyStockUse/);
+  assert.match(source,/consumeCafeBusinessStock\(\{wholesaleStock:cafeBusinessState\.stock,localStock:cafeBusinessState\.localStock,dailyStockUse:cafeBusinessConfig\.dailyStockUse\}\)/);
   assert.match(source,/const customers=20\+cafeBusinessState\.reputation\*2/);
   assert.match(source,/const gross=185\+cafeBusinessState\.reputation\*12/);
   assert.match(source,/cafeBusinessState\.reputation=clamp\(cafeBusinessState\.reputation\+1,0,10\)/);
@@ -76,9 +77,11 @@ check('Daily revenue and staff/utilities costs are separate finance transactions
   assert.match(source,/recordTransaction\('Corner Cafe · daily sales',gross,day,'07:00'\)/);
   assert.match(source,/recordTransaction\('Corner Cafe · staff & utilities',-operatingCost,day,'07:00'\)/);
   assert.match(source,/cafeBusinessState\.lastProfit=profit/);
+  assert.match(source,/const localMenuBonus=stockUse\.localUsed\*cafeBusinessConfig\.localSalesBonusPerServing/);
+  assert.match(source,/cafeBusinessState\.lifetimeLocalServings\+=stockUse\.localUsed/);
 });
 check('Running out of stock automatically closes the cafe without creating a false sales payout',()=>{
-  assert.match(source,/if\(cafeBusinessState\.stock<cafeBusinessConfig\.dailyStockUse\)\{\n    cafeBusinessState\.open=false/);
+  assert.match(source,/if\(!stockUse\.ok\)\{\n    cafeBusinessState\.open=false/);
   assert.match(source,/CORNER CAFE KEHABISAN STOK/);
 });
 check('Espresso machine and patio seating have three priced upgrade tiers with real daily revenue bonuses',()=>{
@@ -103,23 +106,26 @@ check('Cafe ownership, stock, upgrades, reputation and operating history persist
 check('Older saves without a cafeBusiness field default to an unowned closed business',()=>{
   assert.match(source,/const savedCafeBusiness=data\.cafeBusiness\|\|\{\}/);
   assert.match(source,/cafeBusinessState\.owned=!!savedCafeBusiness\.owned/);
+  assert.match(source,/cafeBusinessState\.localStock=cafeBusinessState\.owned\?clamp/);
   assert.match(source,/cafeBusinessState\.open=cafeBusinessState\.owned&&!!savedCafeBusiness\.open/);
-  assert.match(source,/stock:0,reputation:0,espresso:0,patio:0/);
+  assert.match(source,/stock:0,localStock:0,localDeliveries:0,lifetimeLocalServings:0,lastLocalServings:0,reputation:0,espresso:0,patio:0/);
 });
 check('Runtime diagnostics expose the cafe business, next upgrade prices and sign status',()=>{
   assert.match(source,/cafeBusiness: \{\.\.\.cafeBusinessState,config:\{\.\.\.cafeBusinessConfig\}/);
+  assert.match(source,/localSupply:\{capacity:cafeBusinessConfig\.localStockCapacity,options:cafeLocalSupplyCatalog/);
   assert.match(source,/nextUpgrade:\{espresso:cafeBusinessUpgradeCost\('espresso'\),patio:cafeBusinessUpgradeCost\('patio'\)\}/);
 });
 check('The business dashboard has responsive stock, reputation, profit and upgrade styling',()=>{
   assert.match(css,/\.cafe-business-stats/);
   assert.match(css,/\.cafe-business-actions/);
   assert.match(css,/\.cafe-upgrade-card/);
+  assert.match(css,/\.cafe-local-supply-card/);
   assert.match(css,/@media\(max-width:700px\)\{\.cafe-business-section/);
 });
-check('The 40.7 release notes, package, lockfile and aggregate test runner include the cafe business system',()=>{
-  assert.equal(pkg.version,'0.40.7');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.7</title>'));
-  assert.ok(html.includes('BUILD 0.40.7'));
+check('The 40.8 release notes, package, lockfile and aggregate test runner include the cafe business system',()=>{
+  assert.equal(pkg.version,'0.40.8');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.8</title>'));
+  assert.ok(html.includes('BUILD 0.40.8'));
   assert.match(readme,/Prototype 40\.7 — Corner Cafe Ownership & Business Management/);
   assert.match(pkg.scripts['test:game'],/test:cafe-business/);
 });

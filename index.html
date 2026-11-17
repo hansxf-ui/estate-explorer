@@ -10,14 +10,14 @@
   <meta property="og:title" content="Estate Explorer — 3D Life Simulation" />
   <meta property="og:description" content="Explore a modern mansion, meet residents, work and build your daily life in this browser-playable 3D world." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Estate Explorer — Prototype 40.7</title>
+  <title>Estate Explorer — Prototype 40.8</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <main id="game" class="prestart">
     <div id="loading" class="loading"><span class="loader"></span><span>MENYIAPKAN DUNIA</span></div>
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.7</small></div></div>
+      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.8</small></div></div>
       <div class="location"><i></i><span id="location-label">FRONT GARDEN</span></div>
       <div class="life-actions">
         <span class="wallet"><b id="wallet-value">$650</b><small>CASH</small></span>
@@ -97,7 +97,12 @@
         <div id="cafe-business-stats" class="cafe-business-stats"></div>
         <div class="cafe-business-actions"><button id="cafe-business-license" type="button">BUY BUSINESS LICENSE · $3,600</button><button id="cafe-business-restock" type="button" class="hidden">RESTOCK ×12 · $180</button><button id="cafe-business-toggle" type="button" class="hidden">OPEN BUSINESS</button></div>
         <div id="cafe-business-upgrades" class="cafe-business-upgrades hidden"></div>
-        <small class="panel-footnote">Open shops sell automatically at 07:00 each game day. Each operating day uses 3 stock servings and pays staff plus utilities. Reputation grows through successful business days.</small>
+        <section class="cafe-local-supply-section">
+          <div class="finance-section-head"><div><span class="panel-eyebrow">ESTATE GARDEN + ARTISAN WORKSHOP</span><h4>Farm-to-Table Supply</h4></div><b id="cafe-local-supply-stock">0/24</b></div>
+          <p class="cafe-local-supply-copy">Kirim hasil panen atau produk workshop ke cafe. Stok lokal dipakai lebih dulu sebelum persediaan grosir, dan setiap sajian lokal memberi bonus penjualan.</p>
+          <div id="cafe-local-supply-list" class="cafe-local-supply-list"></div>
+        </section>
+        <small class="panel-footnote">Open shops sell automatically at 07:00 each game day. Each operating day uses 3 servings, pays staff plus utilities, and prioritizes locally sourced stock. Reputation grows through successful business days.</small>
       </section>
       <div class="finance-section">
         <div class="finance-section-head"><div><span class="panel-eyebrow">PERSONAL BALANCE</span><h4>Money overview</h4></div><b id="finance-cash">$650</b></div>
@@ -313,10 +318,10 @@
         <h2>Estate<br><em>Explorer</em></h2>
         <p>Bangun kehidupanmu. Cari pekerjaan, kumpulkan uang, dan buat rumah ini terasa milikmu.</p>
         <button id="start-btn">MASUK KE DUNIA <span>↗</span></button>
-        <small>PROTOTYPE 40.7 · LIFE SIMULATION</small>
+        <small>PROTOTYPE 40.8 · LIFE SIMULATION</small>
       </div>
     </div>
-    <div class="version">BUILD 0.40.7 <span>•</span> THREE.JS</div>
+    <div class="version">BUILD 0.40.8 <span>•</span> THREE.JS</div>
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>
