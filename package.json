@@ -1,0 +1,47 @@
+{
+  "name": "estate-explorer",
+  "version": "0.40.7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "vercel-build": "npm run build",
+    "test:npc": "node scripts/verify-npc-system.mjs",
+    "test:core": "node scripts/verify-core-gameplay.mjs",
+    "test:game": "npm run test:core && npm run test:npc && npm run test:progression && npm run test:work && npm run test:property && npm run test:home && npm run test:character && npm run test:camera && npm run test:gestures && npm run test:objects && npm run test:world && npm run test:vehicle && npm run test:driving-exploration && npm run test:district && npm run test:fishing && npm run test:boat && npm run test:shoal && npm run test:race && npm run test:salvage && npm run test:dive && npm run test:rent && npm run test:farm && npm run test:workshop && npm run test:garage && npm run test:dealer && npm run test:express && npm run test:rally && npm run test:cafe-business",
+    "test:progression": "node scripts/verify-progression-system.mjs",
+    "test:work": "node scripts/verify-work-finance.mjs",
+    "test:property": "node scripts/verify-property-progression.mjs && node scripts/verify-property-expansion.mjs",
+    "test:home": "node scripts/verify-home-activities.mjs",
+    "test:character": "node scripts/verify-character-motion.mjs",
+    "test:camera": "node scripts/verify-camera-system.mjs",
+    "test:gestures": "node scripts/verify-character-gestures.mjs",
+    "test:objects": "node scripts/verify-object-handling.mjs",
+    "test:world": "node scripts/verify-world-physics.mjs",
+    "test:vehicle": "node scripts/verify-vehicle-driving.mjs",
+    "test:driving-exploration": "node scripts/verify-driving-exploration.mjs",
+    "test:district": "node scripts/verify-neighborhood.mjs",
+    "test:fishing": "node scripts/verify-fishing-system.mjs",
+    "test:boat": "node scripts/verify-boat-rental.mjs",
+    "test:shoal": "node scripts/verify-north-shoal.mjs",
+    "test:race": "node scripts/verify-boat-race.mjs",
+    "test:salvage": "node scripts/verify-boat-salvage.mjs",
+    "test:dive": "node scripts/verify-reef-dive.mjs",
+    "test:rent": "node scripts/verify-guest-rental.mjs",
+    "test:farm": "node scripts/verify-estate-farming.mjs",
+    "test:workshop": "node scripts/verify-farm-workshop.mjs",
+    "test:garage": "node scripts/verify-vehicle-garage.mjs",
+    "test:dealer": "node scripts/verify-vehicle-dealer.mjs",
+    "test:express": "node scripts/verify-city-express.mjs",
+    "test:rally": "node scripts/verify-road-rally.mjs",
+    "test:cafe-business": "node scripts/verify-cafe-business.mjs"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.12"
+  }
+}

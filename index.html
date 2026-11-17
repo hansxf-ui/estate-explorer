@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#101a1b" />
+  <meta name="description" content="Estate Explorer — a browser-playable 3D life simulation. Explore a modern mansion, meet residents, work, decorate and build your daily life." />
+  <meta name="application-name" content="Estate Explorer" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Estate Explorer — 3D Life Simulation" />
+  <meta property="og:description" content="Explore a modern mansion, meet residents, work and build your daily life in this browser-playable 3D world." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Estate Explorer — Prototype 40.7</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <main id="game" class="prestart">
+    <div id="loading" class="loading"><span class="loader"></span><span>MENYIAPKAN DUNIA</span></div>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.7</small></div></div>
+      <div class="location"><i></i><span id="location-label">FRONT GARDEN</span></div>
+      <div class="life-actions">
+        <span class="wallet"><b id="wallet-value">$650</b><small>CASH</small></span>
+        <button id="inventory-btn" type="button">BAG</button>
+        <button id="style-btn" type="button">STYLE</button>
+        <button id="skills-btn" type="button" title="Character skills">SKILL</button>
+        <button id="tasks-btn" type="button" title="Daily tasks">TASKS <span id="tasks-count">0/3</span></button>
+        <button id="work-btn" type="button" title="Work and finances">WORK</button>
+        <button id="settings-btn" type="button" aria-label="Settings" title="Settings">⚙</button>
+        <div class="save-controls"><button id="save-btn" type="button">SAVE</button><button id="load-btn" type="button">LOAD</button></div>
+      </div>
+      <div class="calendar-chip"><small id="house-day">DAY 1</small><div class="clock" id="clock">09:00</div></div>
+    </header>
+    <section class="mission">
+      <span class="eyebrow">YOUR PROPERTY</span>
+      <h1>Explore the<br><em>residence.</em></h1>
+      <p>Jelajahi rumah, lingkungan sekitar, dan tempat baru di luar gerbang.</p>
+      <div class="mission-line"><span></span><small>FREE ROAM · 01</small></div>
+    </section>
+    <div class="crosshair" aria-hidden="true"><span></span><span></span></div>
+    <section class="tour-panel" id="tour-panel">
+      <div class="tour-head"><span>PROPERTY TOUR</span><b id="tour-count">00 / 04</b></div>
+      <div class="tour-track"><span id="tour-progress"></span></div>
+      <p id="tour-objective">Masuk ke dalam rumah</p>
+    </section>
+    <section class="job-hud" id="job-hud">
+      <div class="job-hud-head"><span>DAILY WORK</span><b id="job-status">AVAILABLE</b></div>
+      <p id="job-objective">Temui Alex untuk mencari pekerjaan.</p>
+    </section>
+    <section class="delivery-network-hud hidden" id="delivery-network-hud" aria-live="polite">
+      <div class="delivery-network-head"><span>CITY EXPRESS</span><b id="delivery-network-status">EN ROUTE</b></div>
+      <div class="delivery-network-destination"><strong id="delivery-network-title">Town Market</strong><small id="delivery-network-timer">02:25 LEFT</small></div>
+      <div class="delivery-network-track"><i id="delivery-network-progress"></i></div>
+      <p id="delivery-network-copy">Drive to the glowing loading bay and slow down to unload.</p>
+    </section>
+    <section class="needs-hud" id="needs-hud">
+      <div class="needs-title"><span>DAILY NEEDS</span><small>WELLBEING</small></div>
+      <div class="need-row"><span>🍽 HUNGER</span><div class="need-track"><i id="hunger-bar"></i></div><b id="hunger-value">100%</b></div>
+      <div class="need-row"><span>⚡ ENERGY</span><div class="need-track"><i id="energy-bar"></i></div><b id="energy-value">100%</b></div>
+      <div class="need-row"><span>♡ SOCIAL</span><div class="need-track"><i id="social-bar"></i></div><b id="social-value">50%</b></div>
+      <div class="need-row"><span>✦ HYGIENE</span><div class="need-track"><i id="hygiene-bar"></i></div><b id="hygiene-value">100%</b></div>
+      <div class="need-row"><span>◌ BLADDER</span><div class="need-track"><i id="bladder-bar"></i></div><b id="bladder-value">100%</b></div>
+      <div class="relationship-block">
+        <div class="relationship-title"><span>RELATIONSHIPS</span><small>CONNECTION</small></div>
+        <div class="relationship-row"><span>ALEX</span><div class="relationship-track"><i id="relationship-alex-bar"></i></div><b id="relationship-alex-value">ACQUAINTANCE</b></div>
+        <div class="relationship-row"><span>MIA</span><div class="relationship-track"><i id="relationship-mia-bar"></i></div><b id="relationship-mia-value">ACQUAINTANCE</b></div>
+      </div>
+    </section>
+    <section class="life-panel career-panel hidden" id="career-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">UPSTAIRS HOME OFFICE</span><h3>Career desk</h3></div><button class="panel-close" data-close="career-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Tingkatkan kemampuan profesionalmu lewat sesi belajar. Setelah Career level 2, kamu bisa mengambil pekerjaan freelance dari rumah.</p>
+      <div class="career-progress">
+        <div class="career-progress-head"><b id="career-skill-level">LVL 1</b><span id="career-xp">0 / 60 XP</span></div>
+        <div class="skill-track"><i id="career-xp-fill" style="width:0%"></i></div>
+        <div class="career-progress-foot"><span>FREELANCE SHIFTS TODAY</span><b id="career-shifts">0 / 2</b></div>
+      </div>
+      <div class="panel-actions career-actions">
+        <button id="career-study-btn" class="panel-action" type="button"><strong>Study & upskill</strong><span>+30 XP · −8 Energy · 45 min</span></button>
+        <button id="career-work-btn" class="panel-action" type="button" disabled><strong>Freelance project</strong><span>Unlock at Career level 2</span></button>
+      </div>
+      <small class="panel-footnote">Maksimum 2 freelance projects per hari game. Skill dan progress tersimpan otomatis.</small>
+    </section>
+    <section class="life-panel skill-panel hidden" id="skill-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">CHARACTER PROGRESSION</span><h3>Skills</h3></div><button class="panel-close" data-close="skill-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Setiap aktivitas mengembangkan kemampuanmu. Skill yang lebih tinggi memberi bonus nyata saat menjalani hari.</p>
+      <div id="skill-list" class="skill-list"></div>
+      <p class="panel-footnote">XP tersimpan bersama progress game. Maksimum level: 10.</p>
+    </section>
+    <section class="life-panel work-finance-panel hidden" id="work-finance-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">ESTATE CAREER & ECONOMY</span><h3>Work & Finance</h3></div><button class="panel-close" data-close="work-finance-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Pilih kontrak yang sesuai dengan energi dan kemampuanmu. Penghasilan serta pengeluaran dicatat di buku keuangan.</p>
+      <div class="work-shift-summary" id="work-shift-summary">DAY 1 · COURIER 0/1 · GARDEN 0/1 · FREELANCE 0/2</div>
+      <div class="work-contract-list" id="work-contract-list"></div>
+      <section class="cafe-business-section" id="cafe-business-section">
+        <div class="finance-section-head"><div><span class="panel-eyebrow">NEIGHBORHOOD OWNERSHIP</span><h4>Corner Cafe Business</h4></div><b id="cafe-business-status">NOT OWNED</b></div>
+        <p id="cafe-business-copy" class="cafe-business-copy">Buy the Corner Cafe and turn it into a profitable neighborhood business.</p>
+        <div id="cafe-business-stats" class="cafe-business-stats"></div>
+        <div class="cafe-business-actions"><button id="cafe-business-license" type="button">BUY BUSINESS LICENSE · $3,600</button><button id="cafe-business-restock" type="button" class="hidden">RESTOCK ×12 · $180</button><button id="cafe-business-toggle" type="button" class="hidden">OPEN BUSINESS</button></div>
+        <div id="cafe-business-upgrades" class="cafe-business-upgrades hidden"></div>
+        <small class="panel-footnote">Open shops sell automatically at 07:00 each game day. Each operating day uses 3 stock servings and pays staff plus utilities. Reputation grows through successful business days.</small>
+      </section>
+      <div class="finance-section">
+        <div class="finance-section-head"><div><span class="panel-eyebrow">PERSONAL BALANCE</span><h4>Money overview</h4></div><b id="finance-cash">$650</b></div>
+        <div class="finance-totals"><div><small>LIFETIME INCOME</small><b class="income" id="finance-earned">+$0</b></div><div><small>LIFETIME SPENDING</small><b class="expense" id="finance-spent">−$0</b></div></div>
+        <div class="finance-ledger-head"><b>Recent transactions</b><small>LAST 12</small></div>
+        <div id="finance-ledger" class="finance-ledger"></div>
+      </div>
+      <small class="panel-footnote">Kontrak kurir dan taman masing-masing 1 kali per hari. Freelance maksimal 2 proyek per hari setelah Career level 2.</small>
+    </section>
+    <section class="life-panel daily-tasks-panel hidden" id="daily-tasks-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">YOUR DAILY PROGRESSION</span><h3>Daily Planner</h3></div><button class="panel-close" data-close="daily-tasks-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Selesaikan target harian dari aktivitas rumah, latihan skill, pekerjaan, dan dekorasi. Hadiah masuk ke wallet setelah kamu klaim.</p>
+      <div class="daily-task-summary" id="daily-task-summary">0/3 completed · 0/3 rewards collected</div>
+      <div class="daily-task-list" id="daily-tasks-list"></div>
+      <small class="panel-footnote">Target berganti setiap hari game. Progress dan reward yang sudah diklaim ikut tersimpan.</small>
+    </section>
+    <section class="life-panel settings-panel hidden" id="settings-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">GAME PREFERENCES</span><h3>Settings</h3></div><button class="panel-close" data-close="settings-panel" aria-label="Close">×</button></div>
+      <div class="settings-section"><div class="settings-label"><b>Graphics quality</b><small>Sesuaikan performa perangkat.</small></div><div class="quality-options"><button type="button" data-quality="low">LOW</button><button type="button" data-quality="balanced">BALANCED</button><button type="button" data-quality="high">HIGH</button></div></div>
+      <div class="settings-section"><div class="settings-label"><b>Camera sensitivity</b><small>Atur kecepatan putaran kamera saat drag.</small></div><div class="quality-options"><button type="button" data-camera-sensitivity="low">LOW</button><button type="button" data-camera-sensitivity="normal">NORMAL</button><button type="button" data-camera-sensitivity="high">HIGH</button></div></div>
+      <div class="settings-row"><div><b>Invert vertical camera</b><small>Balik arah geser atas dan bawah.</small></div><button id="camera-invert-toggle" class="settings-toggle" type="button">OFF</button></div>
+      <div class="settings-row"><div><b>Automatic save</b><small id="autosave-status">Progress otomatis disimpan setiap 45 detik.</small></div><button id="autosave-toggle" class="settings-toggle" type="button">ON</button></div>
+      <button id="settings-fullscreen-btn" class="bill-pay settings-fullscreen" type="button">ENTER FULLSCREEN</button>
+      <div class="settings-section backup-section"><div class="settings-label"><b>Save backup</b><small>Pindahkan progress ke browser atau perangkat lain.</small></div><div class="backup-actions"><button id="export-save-btn" type="button">EXPORT SAVE</button><label for="import-save-file">IMPORT SAVE</label><input id="import-save-file" type="file" accept="application/json,.json" /></div></div>
+      <p class="settings-footnote">Save game tersimpan di browser/perangkat ini, bukan di akun online. Backup bisa dipindahkan secara manual.</p>
+    </section>
+    <section class="life-panel household-panel hidden" id="household-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">PROPERTY MANAGEMENT</span><h3>Household bills</h3></div><button class="panel-close" data-close="household-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Tagihan listrik, air, dan perawatan rumah dikirim setiap hari pukul 07:00 waktu game. Bayar di kotak surat agar keuangan rumah tetap rapi.</p>
+      <div class="bill-card"><div><small>OUTSTANDING BALANCE</small><b id="bill-amount">$0</b></div><span id="bill-status">ALL CLEAR</span></div>
+      <div class="bill-meta"><span id="bill-history">$0 paid so far</span><span id="bill-daily-rate">DAILY · $85</span></div>
+      <button id="pay-bills-btn" class="bill-pay" type="button">NO BILLS DUE</button>
+      <button id="property-manage-btn" class="property-manage-btn" type="button">MANAGE PROPERTY UPGRADES ↗</button>
+    </section>
+    <section class="life-panel property-panel hidden" id="property-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">PROPERTY DEVELOPMENT</span><h3>Home Renovations</h3></div><button class="panel-close" data-close="property-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Invest in the residence to improve daily life, build a Creative Studio, or add a fully usable Guest Suite. Every expansion changes the floorplan, opens a real doorway, and adds a permanent gameplay function.</p>
+      <div class="property-overview"><div><small>RENOVATION PROGRESS</small><b id="property-progress">0 / 12 RENOVATION LEVELS</b></div><div><small>AVAILABLE CASH</small><b id="property-wallet">$650</b></div><div><small>DAILY UTILITIES</small><b id="property-utility-cost">$85 / DAY</b></div></div>
+      <section class="guest-rental-card" aria-labelledby="guest-rental-heading">
+        <div class="guest-rental-head"><div><span>INCOME PROPERTY · WEST WING</span><h4 id="guest-rental-heading">Guest Suite Rental</h4></div><b id="guest-rental-status" class="guest-rental-status">LOCKED · GUEST SUITE LV. 2</b></div>
+        <div class="guest-rental-stats"><div><small>TENANT</small><b id="guest-rental-tenant">No tenant</b></div><div><small>LEASE</small><b id="guest-rental-term">7-DAY FIXED LEASE</b></div><div><small>DAILY CASH FLOW</small><b id="guest-rental-income">$180/day · −$25 fee · +$155 net</b></div></div>
+        <p id="guest-rental-earned" class="guest-rental-earned">$0 earned · $0 fees · 0 paid days</p>
+        <p id="guest-rental-note" class="guest-rental-note">Build the Guest Suite to level 2 to unlock rental management.</p>
+        <div class="guest-rental-actions"><button id="guest-rental-primary" class="guest-rental-primary" type="button" disabled>UNLOCK · GUEST SUITE LV. 2</button><button id="guest-rental-secondary" class="guest-rental-secondary hidden" type="button" disabled>CANCEL LISTING</button></div>
+      </section>
+      <div id="property-upgrade-list" class="property-upgrade-list"></div>
+      <small class="panel-footnote">Renovasi tersimpan bersama save game. Upgrade tidak hilang saat game ditutup atau hari berganti.</small>
+    </section>
+    <section class="life-panel dialogue-panel hidden" id="dialogue-panel" aria-live="polite">
+      <div class="panel-head"><div><span class="panel-eyebrow">ESTATE RESIDENT</span><h3 id="dialogue-name">Alex</h3></div><button class="panel-close" data-close="dialogue-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy" id="dialogue-copy"></p>
+      <div class="panel-actions" id="dialogue-actions"></div>
+    </section>
+    <section class="life-panel shop-panel hidden" id="shop-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">INTERIOR COLLECTION</span><h3>Estate Living</h3></div><button class="panel-close" data-close="shop-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Beli furnitur, atur sendiri posisinya di dalam rumah, atau ambil kebutuhan kecil untuk keseharian.</p>
+      <div class="shop-items">
+        <article class="shop-item"><div class="item-icon plant-icon">✳</div><div><b>Indoor Plant</b><small>Tanaman dekoratif · $180</small></div><button data-buy="plant">BUY</button></article>
+        <article class="shop-item"><div class="item-icon lamp-icon">◉</div><div><b>Floor Lamp</b><small>Lampu sudut · $260</small></div><button data-buy="floorLamp">BUY</button></article>
+        <article class="shop-item"><div class="item-icon">▤</div><div><b>Bookshelf</b><small>Rak buku kayu · Bisa dipakai membaca · $340</small></div><button data-buy="bookshelf">BUY</button></article>
+        <article class="shop-item"><div class="item-icon">▱</div><div><b>Side Table</b><small>Meja kecil · $220</small></div><button data-buy="sideTable">BUY</button></article>
+        <article class="shop-item"><div class="item-icon">▧</div><div><b>Area Rug</b><small>Karpet ruang keluarga · $150</small></div><button data-buy="areaRug">BUY</button></article>
+        <article class="shop-item"><div class="item-icon bouquet-icon">✿</div><div><b>Flower Bouquet</b><small>Hadiah relationship · $120</small></div><button data-buy="bouquet">BUY</button></article>
+        <article class="shop-item"><div class="item-icon coffee-icon">☕</div><div><b>Coffee</b><small>Hadiah atau +22 Energy · $35</small></div><button data-buy="coffee">BUY</button></article>
+      </div>
+      <small class="panel-footnote">Barang yang dibeli masuk ke inventory.</small>
+    </section>
+    <section class="life-panel inventory-panel hidden" id="inventory-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">YOUR BELONGINGS</span><h3>Inventory</h3></div><button class="panel-close" data-close="inventory-panel" aria-label="Close">×</button></div>
+      <div id="inventory-list" class="inventory-list"></div>
+    </section>
+    <section class="life-panel style-panel hidden" id="style-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">CHARACTER CUSTOMIZATION</span><h3>Personal style</h3></div><button class="panel-close" data-close="style-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Pilih warna outfit karaktermu.</p>
+      <div class="style-swatches">
+        <button data-style="forest"><i class="swatch forest"></i><span>Forest</span></button>
+        <button data-style="sand"><i class="swatch sand"></i><span>Sand</span></button>
+        <button data-style="wine"><i class="swatch wine"></i><span>Wine</span></button>
+        <button data-style="ocean"><i class="swatch ocean"></i><span>Ocean</span></button>
+      </div>
+    </section>
+    <div id="placement-controls" class="placement-controls hidden">
+      <div class="placement-label"><b>FURNITURE PLACEMENT</b><small id="placement-item-name">INDOOR PLANT</small></div>
+      <div class="placement-actions">
+        <button id="placement-rotate-btn" type="button">ROTATE ↻</button>
+        <button id="placement-confirm-btn" type="button">PLACE ✓</button>
+        <button id="placement-cancel-btn" type="button">CANCEL</button>
+      </div>
+      <small class="placement-hint">Arahkan kamera ke lantai · Q untuk putar · ENTER untuk pasang · ESC untuk batal</small>
+    </div>
+    <section class="life-panel farm-panel hidden" id="farm-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">ESTATE ALLOTMENT · WEST GARDEN</span><h3>Garden Planner</h3></div><button class="panel-close" data-close="farm-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Pilih bibit, tanam di salah satu dari enam raised beds, lalu siram. Waktu game menentukan pertumbuhan. Panen tanaman matang dan jual hasilnya di Town Market.</p>
+      <div id="farm-seed-balance" class="farm-seed-balance">SELECTED · TOMATO SEEDS ×0</div>
+      <div class="farm-seed-options">
+        <button type="button" data-farm-seed="tomato"><span>🍅 TOMATO</span><small>OWNED ×0</small></button>
+        <button type="button" data-farm-seed="carrot"><span>🥕 CARROT</span><small>OWNED ×0</small></button>
+        <button type="button" data-farm-seed="strawberry"><span>🍓 STRAWBERRY</span><small>OWNED ×0</small></button>
+      </div>
+      <div class="farm-plot-list-head"><b>YOUR PLANTING BEDS</b><small>6 AVAILABLE PLOTS</small></div>
+      <div id="farm-plot-list" class="farm-plot-list"></div>
+      <section class="farm-workshop-section">
+        <div class="farm-plot-list-head"><b>ARTISAN WORKSHOP</b><small>VALUE-ADDED PRODUCTION</small></div>
+        <p id="farm-workshop-status" class="farm-workshop-status">LOCKED · BUILD THE ARTISAN WORKSHOP FOR $780</p>
+        <button id="farm-workshop-build" class="farm-workshop-build" type="button">BUILD WORKSHOP · $780</button>
+        <div id="farm-recipe-list" class="farm-recipe-list hidden"></div>
+      </section>
+      <small class="panel-footnote">Seed packs berisi 3 bibit. Tomat matang 4 jam, wortel 3 jam, stroberi 5 jam waktu game. Gardening level 3, 6, dan 9 menambah hasil panen. Workshop mengolah panen menjadi produk premium; batch selesai seiring waktu game berjalan.</small>
+    </section>
+    <section class="life-panel vehicle-dealer-panel hidden" id="vehicle-dealer-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">ESTATE MOTOR DISTRICT · SALES</span><h3>Vehicle Showroom</h3></div><button class="panel-close" data-close="vehicle-dealer-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Koleksi kendaraan pribadi. Beli Sport Motorcycle, lalu pilih unit yang ingin dikirim ke delivery bay. SUV tetap menjadi kendaraan default milikmu.</p>
+      <div class="dealer-feature-card"><div class="dealer-feature-icon">🏍</div><div><b>Sport Motorcycle</b><small>25.5 top speed · agile handling · compact frame</small><strong>$2,850 · ONE-TIME PURCHASE</strong></div></div>
+      <p id="dealer-status" class="dealer-status">SPORT MOTORCYCLE · $2,850 · READY FOR DELIVERY</p>
+      <button id="dealer-buy-bike" class="dealer-buy-bike" type="button">BUY SPORT MOTORCYCLE · $2,850</button>
+      <div id="dealer-fleet-options" class="dealer-fleet-options hidden"></div>
+      <small class="panel-footnote">Fuel, cleanliness and odometer tersimpan secara terpisah untuk SUV dan motor. Kunjungi kembali showroom untuk mengganti kendaraan aktif.</small>
+    </section>
+    <section class="life-panel garage-panel hidden" id="garage-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">ESTATE PROPERTY · VEHICLE SERVICES</span><h3>Motor Garage</h3></div><button class="panel-close" data-close="garage-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Bangun bengkel pribadi di area estate, tingkatkan performa SUV, dan ganti warna bodi. Semua part yang dipasang akan memengaruhi kendaraan dan tersimpan di save game.</p>
+      <p id="garage-status" class="garage-status">LOCKED · BUILD THE ESTATE MOTOR GARAGE FOR $1,250</p>
+      <button id="garage-build" class="garage-build" type="button">BUILD GARAGE · $1,250</button>
+      <div id="garage-upgrade-list" class="garage-upgrade-list hidden"></div>
+      <section id="garage-paint-options" class="garage-paint-section hidden">
+        <div class="garage-section-head"><b>BODY COLOUR</b><small>PERSONALISE YOUR SUV</small></div>
+        <div class="garage-paint-grid"></div>
+      </section>
+      <small class="panel-footnote">Performance ECU meningkatkan top speed dan akselerasi, Sport Steering Rack meningkatkan respons belok, dan Eco Fuel Mapping menghemat bahan bakar. Maksimal tiga level per kategori.</small>
+    </section>
+    <section class="life-panel district-panel hidden" id="district-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">NEIGHBORHOOD BUSINESS</span><h3 id="district-store-title">Town Market</h3></div><button class="panel-close" data-close="district-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy" id="district-store-copy"></p>
+      <div class="district-wallet-row"><span>AVAILABLE CASH</span><b id="district-wallet">$650</b></div>
+      <div id="district-product-list" class="district-product-list"></div>
+      <small class="panel-footnote">Pembelian masuk ke inventory dan tercatat di Work & Finance. Gunakan item melalui BAG.</small>
+    </section>
+    <section class="life-panel fishing-panel hidden" id="fishing-panel">
+      <div class="panel-head"><div><span class="panel-eyebrow">HARBORFRONT MARINA · PIER 01</span><h3>Fishing Spot</h3></div><button class="panel-close" data-close="fishing-panel" aria-label="Close">×</button></div>
+      <p class="panel-copy">Pasang umpan seharga $8, tunggu pelampung bergerak, lalu tekan REEL NOW sebelum ikan lepas. Fishing skill meningkatkan peluang tangkapan langka.</p>
+      <div class="fishing-scene-card"><div class="fishing-float-icon">◉</div><div><b>OPEN WATER</b><small>HARBORFRONT · NORTH SHORE</small></div><span class="fishing-weather">≈ CALM</span></div>
+      <div class="fishing-meter-wrap"><div class="fishing-meter-meta"><span id="fishing-meter-label">FISHING LINE</span><b>1.12s REEL WINDOW</b></div><div class="fishing-meter"><i id="fishing-meter-fill"></i></div></div>
+      <p id="fishing-status" class="fishing-status">Lempar umpan dan perhatikan pelampung. Saat ikan menyambar, tarik sebelum waktunya habis.</p>
+      <div class="fishing-actions"><button id="fishing-action-btn" class="fishing-action-btn" type="button">CAST LINE · $8</button><button id="fishing-sell-btn" class="fishing-sell-btn" type="button" disabled>SELL ALL CATCH · $0</button></div>
+      <div id="fishing-catch-summary" class="fishing-catch-summary">0 FISH STORED · SELL VALUE $0 · SESSION 0</div>
+      <small class="panel-footnote">Setiap cast: −$8, −2 Energy, +5 menit. Ikan tersimpan di BAG dan bisa dijual kapan saja dari pier.</small>
+    </section>
+    <div id="vehicle-hud" class="vehicle-hud hidden" aria-live="polite" aria-hidden="true">
+      <div class="vehicle-speed-readout"><small>SPEED</small><strong><span id="vehicle-speed">00</span><i>KM/H</i></strong></div>
+      <div class="vehicle-gear-readout"><small>GEAR</small><b id="vehicle-gear">P</b></div>
+      <div class="vehicle-info-readout"><small>LIGHTS</small><b id="vehicle-light-state">AUTO</b><small>TRIP <span id="vehicle-trip">0.00 KM</span></small><small>FUEL <span id="vehicle-fuel">100%</span></small><small>CLEAN <span id="vehicle-cleanliness">100%</span></small></div>
+      <div class="vehicle-status" id="vehicle-status">PARKED</div>
+    </div>
+    <div id="boat-hud" class="boat-hud hidden" aria-live="polite" aria-hidden="true">
+      <div class="boat-speed-readout"><small>WATER SPEED</small><strong><span id="boat-speed">00</span><i>KM/H</i></strong></div>
+      <div class="boat-gear-readout"><small>GEAR</small><b id="boat-gear">N</b></div>
+      <div class="boat-trip-readout"><small>BOAT TRIP</small><b id="boat-trip">0.00 KM</b></div>
+      <div class="boat-salvage-readout"><small>SALVAGE</small><b id="boat-salvage-count">0/3</b></div>
+      <div class="boat-status" id="boat-status">READY</div>
+      <div id="boat-salvage-prompt" class="boat-salvage-prompt hidden">SAIL TO FIND FLOATING CARGO</div>
+    </div>
+    <section id="dive-hud" class="dive-hud hidden" aria-live="polite" aria-hidden="true">
+      <div class="dive-hud-head"><span>NORTH SHOAL · REEF EXPEDITION</span><b id="dive-progress">0/3 DISCOVERED</b></div>
+      <div class="dive-oxygen-row"><div><small>OXYGEN SUPPLY</small><strong id="dive-oxygen">01:30</strong></div><div class="dive-depth"><small>DEPTH</small><b id="dive-depth">2.3 M</b></div></div>
+      <div class="dive-oxygen-track"><i id="dive-oxygen-fill"></i></div>
+      <div id="dive-target" class="dive-target">EXPLORE THE REEF</div>
+    </section>
+    <div id="underwater-overlay" class="underwater-overlay" aria-hidden="true"></div>
+    <section id="road-rally-hud" class="road-rally-hud hidden" aria-live="polite" aria-hidden="true">
+      <div class="road-rally-head"><span>MOTOR DISTRICT · ROAD RALLY</span><b id="road-rally-stage">01 / 05</b></div>
+      <div class="road-rally-timer"><strong id="road-rally-time">00:00.00</strong><span>LAP TIME</span></div>
+      <div class="road-rally-next"><small>NEXT CHECKPOINT</small><b id="road-rally-next">WESTERN TURN</b></div>
+      <div class="road-rally-track"><i id="road-rally-progress-fill"></i></div>
+      <div id="road-rally-result" class="road-rally-result">BEST --:--.-- · GATES 0/4</div>
+    </section>
+    <section id="boat-race-hud" class="boat-race-hud hidden" aria-live="polite" aria-hidden="true">
+      <div class="boat-race-head"><span>HARBORFRONT · COASTAL CIRCUIT</span><b id="boat-race-stage">01 / 05</b></div>
+      <div class="boat-race-timer"><strong id="boat-race-time">00:00.00</strong><span>RACE TIME</span></div>
+      <div class="boat-race-next"><small>NEXT GATE</small><b id="boat-race-next">NORTH CHANNEL</b></div>
+      <div class="boat-race-track"><i id="boat-race-progress-fill"></i></div>
+      <div id="boat-race-result" class="boat-race-result">BEST --:--.-- · CHECKPOINTS 0/5</div>
+    </section>
+    <div id="toast" class="toast hidden"></div>
+    <div id="interaction" class="interaction hidden"><span class="keycap">E</span><span id="interaction-text">Buka pintu</span></div>
+    <div class="bottom-hint" id="desktop-hint"><kbd>W A S D</kbd> Bergerak <b>·</b> <kbd>SHIFT</kbd> Lari <b>·</b> <kbd>SPACE</kbd> Lompat <b>·</b> <kbd>DRAG</kbd> Kamera <b>·</b> <kbd>WHEEL</kbd> Zoom <b>·</b> <kbd>G</kbd> Drop <b>·</b> <kbd>H</kbd> Place <b>·</b> <kbd>C</kbd> Reset kamera <b>·</b> <kbd>R</kbd> Aktivitas saat duduk</div>
+    <div class="bottom-hint vehicle-desktop-hint hidden" id="vehicle-desktop-hint"><kbd>W</kbd> Gas <b>·</b> <kbd>S</kbd> Mundur <b>·</b> <kbd>A D</kbd> Belok <b>·</b> <kbd>SPACE</kbd> Rem tangan <b>·</b> <kbd>V</kbd> Klakson <b>·</b> <kbd>L</kbd> Lampu <b>·</b> <kbd>R</kbd> Start rally <b>·</b> <kbd>E</kbd> Keluar</div>
+    <div class="bottom-hint dive-desktop-hint hidden" id="dive-desktop-hint"><kbd>W A S D</kbd> Swim <b>·</b> <kbd>SPACE</kbd> Naik <b>·</b> <kbd>SHIFT</kbd> Menyelam <b>·</b> <kbd>E</kbd> Collect / Surface</div>
+    <div class="bottom-hint boat-desktop-hint hidden" id="boat-desktop-hint"><kbd>W</kbd> Maju <b>·</b> <kbd>S</kbd> Mundur <b>·</b> <kbd>A D</kbd> Kemudi <b>·</b> <kbd>SPACE</kbd> Rem <b>·</b> <kbd>R</kbd> Start race <b>·</b> <kbd>F</kbd> Salvage <b>·</b> <kbd>E</kbd> Sandar / exit</div>
+    <div class="mobile-controls" id="mobile-controls">
+      <div class="stick-wrap"><div class="stick-ring" id="stick-ring"><div class="stick-knob" id="stick-knob"></div></div><span>MOVE</span></div>
+      <div class="mobile-actions">
+        <button id="interact-btn" class="action-btn interact-btn hidden">E</button>
+        <button id="drop-btn" class="action-btn object-btn hidden" aria-label="Drop held object">DROP</button>
+        <button id="place-btn" class="action-btn object-btn hidden" aria-label="Place held object">PLACE</button>
+        <button id="vehicle-brake-btn" class="action-btn vehicle-btn vehicle-brake-btn hidden" aria-label="Hold vehicle brake">BRAKE</button>
+        <button id="boat-brake-btn" class="action-btn vehicle-btn vehicle-brake-btn hidden" aria-label="Hold boat brake">BRAKE</button>
+        <button id="boat-race-start-btn" class="action-btn boat-race-start-btn hidden" aria-label="Start speedboat race">RACE</button>
+        <button id="road-rally-start-btn" class="action-btn road-rally-start-btn hidden" aria-label="Start Motor District Road Rally">RALLY</button>
+        <button id="boat-salvage-btn" class="action-btn boat-salvage-btn hidden" aria-label="Recover floating cargo">SALVAGE</button>
+        <button id="vehicle-horn-btn" class="action-btn vehicle-btn hidden" aria-label="Sound vehicle horn">HORN</button>
+        <button id="vehicle-lights-btn" class="action-btn vehicle-btn vehicle-lights-btn hidden" aria-label="Toggle vehicle headlights">LIGHT</button>
+        <button id="seat-activity-btn" class="action-btn seat-activity-btn hidden" aria-label="Seated activity">ACT</button>
+        <button id="follow-btn" class="action-btn follow-btn hidden" aria-label="Toggle NPC auto follow">FOLLOW</button>
+        <button id="camera-reset-btn" class="action-btn camera-reset-btn" aria-label="Reset camera" title="Reset camera">↺</button>
+        <button id="jump-btn" class="action-btn">JUMP</button>
+        <button id="sprint-btn" class="action-btn sprint-btn">RUN</button>
+      </div>
+    </div>
+    <div id="start-screen" class="start-screen">
+      <div class="start-card">
+        <span class="eyebrow">NEIGHBORHOOD EXPANSION & LOCAL COMMERCE</span>
+        <div class="start-logo">E<span>.</span></div>
+        <h2>Estate<br><em>Explorer</em></h2>
+        <p>Bangun kehidupanmu. Cari pekerjaan, kumpulkan uang, dan buat rumah ini terasa milikmu.</p>
+        <button id="start-btn">MASUK KE DUNIA <span>↗</span></button>
+        <small>PROTOTYPE 40.7 · LIFE SIMULATION</small>
+      </div>
+    </div>
+    <div class="version">BUILD 0.40.7 <span>•</span> THREE.JS</div>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
