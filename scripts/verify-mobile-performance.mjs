@@ -20,12 +20,12 @@ check('Touch devices without a manual choice automatically boot in Performance m
   assert.match(source,/isTouchDevice && !hasManualGraphicsPreference \? 'performance'/);
   assert.match(source,/if \(isTouchDevice && !hasManualGraphicsPreference && !notify\) level = rendererFallbackActive \? 'low' : 'performance'/);
   assert.match(source,/estate-graphics-quality-manual/);
-  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.14'/);
+  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.15'/);
   assert.match(source,/estate-graphics-quality-manual-version/);
 });
 check('Performance mode cuts pixel fill, shadow rendering and dynamic light count',()=>{
-  assert.match(source,/performance: \{ pixelRatio: 0\.50, shadows: false, shadowMap: 512, dynamicLights: false \}/);
-  assert.match(source,/low: \{ pixelRatio: 0\.42, shadows: false, shadowMap: 512, dynamicLights: false \}/);
+  assert.match(source,/performance: \{ pixelRatio: 1\.15, shadows: false, shadowMap: 512, dynamicLights: false \}/);
+  assert.match(source,/low: \{ pixelRatio: 1\.0, shadows: false, shadowMap: 512, dynamicLights: false \}/);
   assert.match(source,/renderer\.shadowMap\.enabled = preset\.shadows/);
   assert.match(source,/sun\.castShadow = preset\.shadows/);
   assert.match(source,/managedPointLights\.forEach\(light => \{ light\.visible = preset\.dynamicLights; \}\)/);
@@ -62,11 +62,12 @@ check('Touch devices use a simpler standard glass shader instead of transmission
   assert.match(source,/transmission: 0\.15/);
 });
 check('Adaptive resolution reduces render scale under sustained slow frames and recovers gradually',()=>{
-  assert.match(source,/adaptiveFrameTime > 18\.0 && adaptiveRenderScale > 0\.66/);
-  assert.match(source,/adaptiveRenderScale - 0\.10/);
+  assert.match(source,/adaptiveFrameTime > 18\.0 && adaptiveRenderScale > minimumAdaptiveScale/);
+  assert.match(source,/adaptiveRenderScale - 0\.05/);
+  assert.match(source,/const minimumAdaptiveScale = Math\.min\(1, 1 \/ presetPixelRatio\)/);
   assert.match(source,/adaptiveFrameTime < 14\.8 && adaptiveRenderScale < 1/);
   assert.match(source,/adaptiveRenderScale \+ 0\.02/);
-  assert.match(source,/Math\.max\(0\.66, adaptiveRenderScale/);
+  assert.match(source,/adaptiveRenderScale = Math\.max\(minimumAdaptiveScale, adaptiveRenderScale - 0\.05\)/);
   assert.match(source,/effectiveRenderPixelRatio\(\)/);
 });
 check('Changing graphics quality and resizing the viewport reapply the current adaptive pixel ratio',()=>{
@@ -97,7 +98,7 @@ check('Runtime diagnostics expose frame quality, GPU load and geometry-cache cou
   for(const key of ['deviceClass','pixelRatio','adaptiveRenderScale','antialias','shadows','enabledDynamicLights','managedDynamicLights','primitiveGeometryCache','staticBatching','touchThrottles','renderCalls','triangles'])assert.ok(source.includes(key),key);
 });
 check('The Settings panel includes a dedicated Performance option with adaptive-resolution guidance',()=>{
-  assert.ok(html.includes('iPad menggunakan mode Performance secara otomatis'));
+  assert.ok(html.includes('resolusi minimal 1.0× agar gambar tidak buram'));
   assert.ok(html.includes('data-quality="performance"'));
   assert.match(css,/#settings-panel \.graphics-quality-section \.quality-options\{grid-template-columns:repeat\(4/);
 });
@@ -127,11 +128,11 @@ check('Touch devices receive a shorter camera/fog distance while desktop view di
   assert.match(source,/new THREE\.PerspectiveCamera\(58, innerWidth \/ innerHeight, 0\.1, WORLD_VIEW_DISTANCE\)/);
   assert.match(source,/scene\.fog\.far=WORLD_FOG_DISTANCE/);
 });
-check('Touch graphics use a lower render scale and adaptive resolution can fall below the old 0.65 floor',()=>{
-  assert.match(source,/performance: \{ pixelRatio: 0\.50, shadows: false/);
-  assert.match(source,/low: \{ pixelRatio: 0\.42, shadows: false/);
-  assert.match(source,/Math\.max\(0\.30, Math\.min\(devicePixelRatio/);
-  assert.match(source,/adaptiveFrameTime > 18\.0 && adaptiveRenderScale > 0\.66/);
+check('Touch graphics preserve a sharp 1.0x resolution floor while adaptive scaling only trims higher presets',()=>{
+  assert.match(source,/performance: \{ pixelRatio: 1\.15, shadows: false/);
+  assert.match(source,/low: \{ pixelRatio: 1\.0, shadows: false/);
+  assert.match(source,/const minimumPixelRatio = isTouchDevice \? 1\.0 : 0\.30/);
+  assert.match(source,/adaptiveFrameTime > 18\.0 && adaptiveRenderScale > minimumAdaptiveScale/);
   assert.match(source,/adaptiveFrameTime < 14\.8 && adaptiveRenderScale < 1/);
 });
 check('Touch rendering uses lightweight Lambert shading and skips filmic tone mapping',()=>{
@@ -183,16 +184,16 @@ check('The live performance monitor reports device FPS and the render workload w
   assert.match(source,/DRAWS \$\{renderer\.info\.render\.calls/);
   assert.match(source,/measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs/);
 });
-check('The Prototype 40.14 release notes describe the deep frame-time optimization',()=>{
-  assert.match(readme,/Prototype 40\.14 — Deep iPad Frame-Time Optimization/);
+check('The Prototype 40.15 release notes describe the sharp iPad render floor',()=>{
+  assert.match(readme,/Prototype 40\.15 — Sharp iPad Render Floor/);
   assert.match(readme,/actual 60 FPS target must still be checked on the user's iPad hardware/i);
 });
-check('The Prototype 40.14 package, lockfile, app branding and aggregate tests are synchronized',()=>{
-  assert.equal(pkg.version,'0.40.14');
+check('The Prototype 40.15 package, lockfile, app branding and aggregate tests are synchronized',()=>{
+  assert.equal(pkg.version,'0.40.15');
   assert.equal(lock.version,pkg.version);
   assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.14</title>'));
-  assert.ok(html.includes('BUILD 0.40.14'));
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.15</title>'));
+  assert.ok(html.includes('BUILD 0.40.15'));
   assert.match(pkg.scripts['test:game'],/test:performance/);
 });
 console.log(`\n${passed} mobile graphics optimization integration checks passed.`);

@@ -86,7 +86,7 @@ const desktopHint = document.querySelector('#desktop-hint');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.14';
+const GRAPHICS_PREFERENCE_VERSION = '40.15';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
@@ -99,8 +99,8 @@ try {
   console.warn('Browser storage is unavailable; settings will be temporary.', error);
 }
 const graphicsPresets = {
-  performance: { pixelRatio: 0.50, shadows: false, shadowMap: 512, dynamicLights: false },
-  low: { pixelRatio: 0.42, shadows: false, shadowMap: 512, dynamicLights: false },
+  performance: { pixelRatio: 1.15, shadows: false, shadowMap: 512, dynamicLights: false },
+  low: { pixelRatio: 1.0, shadows: false, shadowMap: 512, dynamicLights: false },
   balanced: { pixelRatio: 1.35, shadows: true, shadowMap: 1024, dynamicLights: true },
   high: { pixelRatio: 1.7, shadows: true, shadowMap: 2048, dynamicLights: true }
 };
@@ -110,7 +110,8 @@ let lastAnimationTimestamp = 0;
 let lastAdaptiveResolutionUpdate = 0;
 function effectiveRenderPixelRatio() {
   const preset = graphicsPresets[graphicsQuality] || graphicsPresets.performance;
-  return Math.max(0.30, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
+  const minimumPixelRatio = isTouchDevice ? 1.0 : 0.30;
+  return Math.max(minimumPixelRatio, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
 }
 function updateRendererResolution() {
   if (!renderer) return;
@@ -6785,8 +6786,10 @@ function animate(timestamp) {
       adaptiveFrameTime += (frameDelta - adaptiveFrameTime) * 0.08;
       if (isTouchDevice && timestamp - lastAdaptiveResolutionUpdate > 2200) {
         lastAdaptiveResolutionUpdate = timestamp;
-        if (adaptiveFrameTime > 18.0 && adaptiveRenderScale > 0.66) {
-          adaptiveRenderScale = Math.max(0.66, adaptiveRenderScale - 0.10);
+        const presetPixelRatio = Math.min(devicePixelRatio || 1, graphicsPresets[graphicsQuality]?.pixelRatio || 1);
+        const minimumAdaptiveScale = Math.min(1, 1 / presetPixelRatio);
+        if (adaptiveFrameTime > 18.0 && adaptiveRenderScale > minimumAdaptiveScale) {
+          adaptiveRenderScale = Math.max(minimumAdaptiveScale, adaptiveRenderScale - 0.05);
           updateRendererResolution();
         } else if (adaptiveFrameTime < 14.8 && adaptiveRenderScale < 1) {
           adaptiveRenderScale = Math.min(1, adaptiveRenderScale + 0.02);

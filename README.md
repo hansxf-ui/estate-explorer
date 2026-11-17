@@ -1,3 +1,10 @@
+## Prototype 40.15 — Sharp iPad Render Floor
+- Raised the iPad Performance preset from 0.50× to 1.15× render resolution and the Low preset from 0.42× to 1.0×. The display is no longer intentionally rendered at half resolution.
+- Added a hard 1.0× minimum render-pixel ratio on touch devices. Adaptive resolution may reduce higher presets under sustained load, but it cannot make the image softer than the CSS-pixel baseline.
+- Kept the Performance preset's expensive shadows and managed dynamic point lights disabled, so its performance budget comes from lighter effects rather than deliberately blurring the whole frame.
+- Versioned graphics preferences so old automatically saved Performance settings are interpreted using the new sharp preset. V18 save data remains compatible.
+- The iPad FPS target still requires a real-device check; no 60 FPS claim is made without measurement on the user's hardware.
+
 ## Prototype 40.14 — Deep iPad Frame-Time Optimization
 - Replaced global static-mesh batches with spatially partitioned 48-unit cells. Each InstancedMesh now has a local bounding sphere, allowing Three.js to frustum-cull distant blocks instead of drawing an entire cross-world batch because one part is visible.
 - Tightened the touch Performance pixel ratio to 0.50 (Low: 0.42), allowing adaptive resolution down to 0.33 effective pixels per CSS pixel. The previous 0.64 preset was not aggressive enough for this scene on the target browser.

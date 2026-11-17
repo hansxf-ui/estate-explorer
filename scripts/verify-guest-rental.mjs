@@ -75,9 +75,9 @@ check('Runtime diagnostics and the work-finance ledger expose rental status and 
   assert.match(source,/function recordTransaction\(label, amount, dayOverride = null, timeOverride = null\)/);
   assert.match(source,/Number\.isFinite\(dayOverride\)[\s\S]*?timeOverride/);
 });
-check('Version 0.40.14, release notes, package lock and aggregate integration-test command are synchronized',()=>{
-  assert.equal(pkg.version,'0.40.14');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.14'));assert.match(pkg.scripts['test:game'],/test:rent/);
+check('Version 0.40.15, release notes, package lock and aggregate integration-test command are synchronized',()=>{
+  assert.equal(pkg.version,'0.40.15');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.15'));assert.match(pkg.scripts['test:game'],/test:rent/);
   assert.match(readme,/Prototype 40\.0 — Guest Suite Rental & Property Income/);
 });
 console.log(`\n${passed} Guest Suite Rental and Property Income checks passed.`);

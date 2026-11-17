@@ -61,9 +61,9 @@ check('Property renovation cards are responsive and show level and affordability
   assert.match(css,/\.property-upgrade-card/);assert.match(css,/\.property-upgrade-buy:disabled/);
   assert.match(css,/@media\(max-width:700px\)[\s\S]*?\.property-panel/);
 });
-check('Version 0.40.14 metadata and release notes are aligned',()=>{
-  assert.equal(pkg.version,'0.40.14');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.match(html,/Prototype 40/);assert.ok(html.includes('BUILD 0.40.14'));
+check('Version 0.40.15 metadata and release notes are aligned',()=>{
+  assert.equal(pkg.version,'0.40.15');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.match(html,/Prototype 40/);assert.ok(html.includes('BUILD 0.40.15'));
   assert.match(readme,/Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 console.log(`\n${passed} property progression integration checks passed.`);
