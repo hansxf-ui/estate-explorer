@@ -1,3 +1,10 @@
+## Prototype 40.16 — Mobile Controls & Camera Input Fix
+- Corrected the camera-relative movement basis: screen-right now maps to the actual camera-right world vector at every orbit angle. The same helper is shared by walking, swimming and NPC follow steering.
+- Added a radial joystick deadzone and remapping to eliminate tiny accidental movement while retaining full travel at the edge of the stick.
+- Increased the touch joystick target, captured only one active joystick pointer, and reset cleanly on pointer-up, pointer-cancel and lost capture.
+- Reduced touch camera drag sensitivity and added a 4 px gesture threshold so taps do not unintentionally orbit the camera. Pinch-to-zoom remains supported, with clean handoff after one finger is lifted.
+- Kept V18 save compatibility. Controls still need hands-on confirmation on the target iPad after deployment.
+
 ## Prototype 40.15 — Sharp iPad Render Floor
 - Raised the iPad Performance preset from 0.50× to 1.15× render resolution and the Low preset from 0.42× to 1.0×. The display is no longer intentionally rendered at half resolution.
 - Added a hard 1.0× minimum render-pixel ratio on touch devices. Adaptive resolution may reduce higher presets under sustained load, but it cannot make the image softer than the CSS-pixel baseline.

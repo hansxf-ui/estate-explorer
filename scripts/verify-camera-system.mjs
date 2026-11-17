@@ -20,9 +20,10 @@ check('Camera has smoothed current and target values for yaw, pitch and distance
 });
 check('Desktop drag and one-finger touch orbit obey configurable sensitivity and vertical inversion', () => {
   assert.match(source, /cameraPointers\.set\(e\.pointerId/);
+  assert.match(source, /totalDrag < 4/);
   assert.match(source, /cameraYawTarget -= dx \* sensitivity/);
   assert.match(source, /cameraPitchTarget = clamp\(cameraPitchTarget \+ dy \* sensitivity \* 0\.6 \* \(invertCameraY \? -1 : 1\)/);
-  assert.match(source, /const baseSensitivity = e\.pointerType === 'touch' \? 0\.007 : 0\.005/);
+  assert.match(source, /const baseSensitivity = e\.pointerType === 'touch' \? 0\.0042 : 0\.005/);
 });
 check('Two-finger pinch zoom clamps camera distance to a safe gameplay range', () => {
   assert.match(source, /function pinchDistance\(\)/);
@@ -85,13 +86,13 @@ check('Mobile reset control and desktop camera guidance are responsive', () => {
   assert.match(css, /@media \(pointer:coarse\),\(max-width:700px\)/);
 });
 check('Prototype 39 release metadata is synchronized across app, package and release notes', () => {
-  assert.equal(pkg.version, '0.40.15');
+  assert.equal(pkg.version, '0.40.16');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:camera/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.15'));
+  assert.ok(html.includes('BUILD 0.40.16'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

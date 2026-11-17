@@ -115,7 +115,8 @@ check('V3–V17 legacy saves and imported backups remain compatible with V18 mig
   assert.match(source, /vehicleTripDistance = clamp\(Number\(data\.vehicleSettings\?\.tripDistance\) \|\| 0, 0, 99999\)/);
 });
 check('Blur, exit and pointer release clear temporary brake state', () => {
-  assert.match(source, /window\.addEventListener\('blur', \(\) => \{ keys\.clear\(\); isRunning = false; vehicleBrakeHeld = false; boatBrakeHeld = false; vehicleSpeed = 0; boatSpeed = 0; \}\)/);
+  assert.match(source, /window\.addEventListener\('blur', releaseAllTransientInput\)/);
+  assert.match(source, /function releaseAllTransientInput\(\) \{[^}]*vehicleBrakeHeld = false; boatBrakeHeld = false;[^}]*vehicleSpeed = 0; boatSpeed = 0/);
   assert.match(source, /brakeButton\.addEventListener\('pointercancel', \(\) => setVehicleBrake\(false\)\)/);
   assert.match(source, /brakeButton\.addEventListener\('lostpointercapture', \(\) => setVehicleBrake\(false\)\)/);
 });
@@ -124,12 +125,12 @@ check('Runtime diagnostics expose vehicle speed, lights, mileage, steering, brak
   assert.match(source, /brakeLightIntensity: vehicleBrakeMat\.emissiveIntensity, bodyPitch: vehicleBody\.rotation\.x, bodyRoll: vehicleBody\.rotation\.z/);
 });
 check('Prototype 39 release metadata, package lock, UI and V18 migration are synchronized', () => {
-  assert.equal(pkg.version, '0.40.15');
+  assert.equal(pkg.version, '0.40.16');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:vehicle/);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.15'));
+  assert.ok(html.includes('BUILD 0.40.16'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
   assert.match(readme, /AUTO \/ ON \/ OFF/);
 });

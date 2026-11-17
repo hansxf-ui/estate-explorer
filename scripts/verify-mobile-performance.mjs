@@ -20,7 +20,7 @@ check('Touch devices without a manual choice automatically boot in Performance m
   assert.match(source,/isTouchDevice && !hasManualGraphicsPreference \? 'performance'/);
   assert.match(source,/if \(isTouchDevice && !hasManualGraphicsPreference && !notify\) level = rendererFallbackActive \? 'low' : 'performance'/);
   assert.match(source,/estate-graphics-quality-manual/);
-  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.15'/);
+  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.16'/);
   assert.match(source,/estate-graphics-quality-manual-version/);
 });
 check('Performance mode cuts pixel fill, shadow rendering and dynamic light count',()=>{
@@ -184,16 +184,18 @@ check('The live performance monitor reports device FPS and the render workload w
   assert.match(source,/DRAWS \$\{renderer\.info\.render\.calls/);
   assert.match(source,/measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs/);
 });
-check('The Prototype 40.15 release notes describe the sharp iPad render floor',()=>{
-  assert.match(readme,/Prototype 40\.15 — Sharp iPad Render Floor/);
+check('The Prototype 40.16 release notes include the mobile input fixes',()=>{
+  assert.match(readme,/Prototype 40\.16 — Mobile Controls & Camera Input Fix/);
   assert.match(readme,/actual 60 FPS target must still be checked on the user's iPad hardware/i);
 });
-check('The Prototype 40.15 package, lockfile, app branding and aggregate tests are synchronized',()=>{
-  assert.equal(pkg.version,'0.40.15');
+check('The Prototype 40.16 package, lockfile, app branding and aggregate tests are synchronized',()=>{
+  assert.equal(pkg.version,'0.40.16');
   assert.equal(lock.version,pkg.version);
   assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.15</title>'));
-  assert.ok(html.includes('BUILD 0.40.15'));
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.16</title>'));
+  assert.ok(html.includes('BUILD 0.40.16'));
   assert.match(pkg.scripts['test:game'],/test:performance/);
+  assert.match(pkg.scripts['test:game'],/test:input/);
+  assert.match(pkg.scripts['test:game'],/test:input/);
 });
 console.log(`\n${passed} mobile graphics optimization integration checks passed.`);

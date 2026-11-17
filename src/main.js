@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { obbIntersectsAabb2D, obbIntersectsCircle2D, vehicleYawRate, isPavedRoadSurface } from './driving-physics.js';
 import { cafeLocalSupplyCatalog, planCafeLocalSupplyDelivery, consumeCafeBusinessStock } from './cafe-supply.js';
+import { cameraRelativeToWorld, worldToCameraRelative, virtualStickVector } from './input-controls.js';
 
 const root = document.querySelector('#game');
 let lastUpdateCostMs = 0;
@@ -86,7 +87,7 @@ const desktopHint = document.querySelector('#desktop-hint');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.15';
+const GRAPHICS_PREFERENCE_VERSION = '40.16';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
@@ -2016,7 +2017,6 @@ let dailyTaskDay = 1;
 const dailyTaskProgress = {};
 const dailyTaskClaimed = {};
 let toastTimer = 0;
-let dragging = false;
 let lastPointer = { x: 0, y: 0 };
 const cameraPointers = new Map();
 let previousPinchDistance = 0;
@@ -5432,7 +5432,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE' && !e.repeat) interact();
 });
 window.addEventListener('keyup', (e) => keys.delete(e.code));
-window.addEventListener('blur', () => { keys.clear(); isRunning = false; vehicleBrakeHeld = false; boatBrakeHeld = false; vehicleSpeed = 0; boatSpeed = 0; });
+function releaseAllTransientInput() { keys.clear(); isRunning = false; vehicleBrakeHeld = false; boatBrakeHeld = false; vehicleSpeed = 0; boatSpeed = 0; joystickVector.set(0,0); joystickPointer = null; stickKnob.style.transform = 'translate(0,0)'; cameraPointers.clear(); previousPinchDistance = 0; }
+window.addEventListener('blur', releaseAllTransientInput);
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAllTransientInput(); });
 window.addEventListener('pagehide', () => { if (isStarted && autoSaveEnabled) { try { saveGame(false); } catch (error) { console.warn('Final auto-save failed:', error); } } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && isStarted && autoSaveEnabled) { try { saveGame(false); } catch (error) { console.warn('Background auto-save failed:', error); } } });
 
@@ -5730,25 +5732,27 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     return;
   }
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  cameraPointers.set(e.pointerId, { x: e.clientX, y: e.clientY, pointerType: e.pointerType });
+  e.preventDefault();
+  cameraPointers.set(e.pointerId, { x:e.clientX, y:e.clientY, startX:e.clientX, startY:e.clientY, pointerType:e.pointerType, dragging:false });
   try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
-  if (cameraPointers.size === 1) {
-    dragging = true;
+  if (cameraPointers.size >= 2) {
+    cameraPointers.forEach(pointer => { pointer.dragging = false; });
+    previousPinchDistance = pinchDistance();
+  } else {
     lastPointer.x = e.clientX;
     lastPointer.y = e.clientY;
-  } else if (cameraPointers.size >= 2) {
-    dragging = false;
-    previousPinchDistance = pinchDistance();
   }
-});
+}, { passive:false });
 renderer.domElement.addEventListener('pointermove', (e) => {
   if (placementMode) {
     updatePlacementTarget(e.clientX,e.clientY);
     return;
   }
   if (!cameraPointers.has(e.pointerId)) return;
+  e.preventDefault();
   const previous = cameraPointers.get(e.pointerId);
-  cameraPointers.set(e.pointerId, { ...previous, x: e.clientX, y: e.clientY });
+  const pointer = { ...previous, x:e.clientX, y:e.clientY };
+  cameraPointers.set(e.pointerId, pointer);
   if (cameraPointers.size >= 2) {
     const nextDistance = pinchDistance();
     if (previousPinchDistance > 0 && nextDistance > 0) {
@@ -5757,24 +5761,27 @@ renderer.domElement.addEventListener('pointermove', (e) => {
     previousPinchDistance = nextDistance;
     return;
   }
-  if (!dragging) return;
+  const totalDrag = Math.hypot(pointer.x - pointer.startX, pointer.y - pointer.startY);
+  if (!pointer.dragging && totalDrag < 4) return;
+  pointer.dragging = true;
+  cameraPointers.set(e.pointerId, pointer);
   const dx = e.clientX - lastPointer.x;
   const dy = e.clientY - lastPointer.y;
-  const baseSensitivity = e.pointerType === 'touch' ? 0.007 : 0.005;
+  const baseSensitivity = e.pointerType === 'touch' ? 0.0042 : 0.005;
   const sensitivity = baseSensitivity * cameraSensitivityOptions[cameraSensitivity];
   cameraYawTarget -= dx * sensitivity;
   cameraPitchTarget = clamp(cameraPitchTarget + dy * sensitivity * 0.6 * (invertCameraY ? -1 : 1), -0.08, 0.78);
   lastPointer.x = e.clientX;
   lastPointer.y = e.clientY;
-});
+}, { passive:false });
 function finishCameraPointer(e) {
+  if (!cameraPointers.has(e.pointerId)) return;
   cameraPointers.delete(e.pointerId);
   if (cameraPointers.size === 1) {
-    const remaining = [...cameraPointers.values()][0];
-    lastPointer.x = remaining.x; lastPointer.y = remaining.y;
-    dragging = true;
-  } else {
-    dragging = false;
+    const [remainingId, remaining] = [...cameraPointers.entries()][0];
+    cameraPointers.set(remainingId, { ...remaining, startX:remaining.x, startY:remaining.y, dragging:false });
+    lastPointer.x = remaining.x;
+    lastPointer.y = remaining.y;
   }
   previousPinchDistance = cameraPointers.size >= 2 ? pinchDistance() : 0;
 }
@@ -5802,24 +5809,49 @@ function updateStick(e) {
   const rect = stickRing.getBoundingClientRect();
   const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
   const dx = e.clientX - cx, dy = e.clientY - cy;
-  const max = rect.width * 0.34;
+  const knobDiameter = stickKnob.getBoundingClientRect().width;
+  const max = Math.max(1, (rect.width - knobDiameter) * 0.5 - 4);
   const len = Math.hypot(dx, dy);
-  const s = len > max ? max / len : 1;
-  const x = dx * s, y = dy * s;
-  joystickVector.set(x / max, -y / max);
-  stickKnob.style.transform = `translate(${x}px,${y}px)`;
+  const scale = len > max ? max / len : 1;
+  const visualX = dx * scale, visualY = dy * scale;
+  const input = virtualStickVector(dx, dy, max, 0.11);
+  joystickVector.set(input.x, input.y);
+  stickKnob.style.transform = `translate(${visualX}px,${visualY}px)`;
 }
-stickRing.addEventListener('pointerdown', (e) => { joystickPointer = e.pointerId; stickRing.setPointerCapture(e.pointerId); updateStick(e); });
-stickRing.addEventListener('pointermove', (e) => { if (e.pointerId === joystickPointer) updateStick(e); });
-function resetStick() { joystickPointer = null; joystickVector.set(0,0); stickKnob.style.transform = 'translate(0,0)'; }
+stickRing.addEventListener('pointerdown', (e) => {
+  if (joystickPointer !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  e.preventDefault();
+  joystickPointer = e.pointerId;
+  try { stickRing.setPointerCapture(e.pointerId); } catch {}
+  updateStick(e);
+}, { passive:false });
+stickRing.addEventListener('pointermove', (e) => {
+  if (e.pointerId !== joystickPointer) return;
+  e.preventDefault();
+  updateStick(e);
+}, { passive:false });
+function resetStick(e) {
+  if (e && e.pointerId !== joystickPointer) return;
+  joystickPointer = null;
+  joystickVector.set(0,0);
+  stickKnob.style.transform = 'translate(0,0)';
+}
 stickRing.addEventListener('pointerup', resetStick);
 stickRing.addEventListener('pointercancel', resetStick);
+stickRing.addEventListener('lostpointercapture', resetStick);
 
-document.querySelector('#jump-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); if(divingState.active)keys.add('Space');else jump(); });
-document.querySelector('#jump-btn').addEventListener('pointerup',()=>keys.delete('Space'));document.querySelector('#jump-btn').addEventListener('pointercancel',()=>keys.delete('Space'));
-document.querySelector('#sprint-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); if(divingState.active)keys.add('ShiftLeft');else isRunning = true; });
-document.querySelector('#sprint-btn').addEventListener('pointerup', () => {isRunning = false;keys.delete('ShiftLeft');});
-document.querySelector('#sprint-btn').addEventListener('pointercancel', () => {isRunning = false;keys.delete('ShiftLeft');});
+const jumpControl = document.querySelector('#jump-btn');
+const sprintControl = document.querySelector('#sprint-btn');
+function releaseJumpControl() { keys.delete('Space'); }
+function releaseSprintControl() { isRunning = false; keys.delete('ShiftLeft'); }
+jumpControl.addEventListener('pointerdown', (e) => { e.preventDefault(); try { jumpControl.setPointerCapture(e.pointerId); } catch {} if(divingState.active)keys.add('Space');else jump(); }, { passive:false });
+jumpControl.addEventListener('pointerup', releaseJumpControl);
+jumpControl.addEventListener('pointercancel', releaseJumpControl);
+jumpControl.addEventListener('lostpointercapture', releaseJumpControl);
+sprintControl.addEventListener('pointerdown', (e) => { e.preventDefault(); try { sprintControl.setPointerCapture(e.pointerId); } catch {} if(divingState.active)keys.add('ShiftLeft');else isRunning = true; }, { passive:false });
+sprintControl.addEventListener('pointerup', releaseSprintControl);
+sprintControl.addEventListener('pointercancel', releaseSprintControl);
+sprintControl.addEventListener('lostpointercapture', releaseSprintControl);
 interactButton.addEventListener('pointerdown', (e) => { e.preventDefault(); interact(); });
 seatActivityButton.addEventListener('pointerdown', (e) => { e.preventDefault(); doSeatedActivity(); });
 dropButton.addEventListener('pointerdown', (e) => { e.preventDefault(); dropHandheldObject(false); });
@@ -6356,7 +6388,8 @@ function update(dt) {
       const forward=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0);
       const right=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0);
       moveInput.set(isUiOpen()?0:right+joystickVector.x,isUiOpen()?0:forward+joystickVector.y);if(moveInput.length()>1)moveInput.normalize();
-      const sin=Math.sin(cameraYaw),cos=Math.cos(cameraYaw),dirX=moveInput.x*cos+moveInput.y*sin,dirZ=moveInput.x*sin-moveInput.y*cos;
+      const swimDirection = cameraRelativeToWorld(moveInput.x, moveInput.y, cameraYaw);
+      const dirX = swimDirection.x, dirZ = swimDirection.z;
       const swimSpeed=2.65,targetVX=dirX*swimSpeed,targetVZ=dirZ*swimSpeed;
       velocity.x=THREE.MathUtils.damp(velocity.x,targetVX,4.2,dt);velocity.z=THREE.MathUtils.damp(velocity.z,targetVZ,4.2,dt);
       player.position.x=clamp(player.position.x+velocity.x*dt,34.0,59.0);player.position.z=clamp(player.position.z+velocity.z*dt,217.0,236.0);
@@ -6448,8 +6481,9 @@ function update(dt) {
         if (followDistance > 0.28) {
           const wx = followX / followDistance;
           const wz = followZ / followDistance;
-          inputRight = wx * Math.cos(cameraYaw) + wz * Math.sin(cameraYaw);
-          inputForward = wx * Math.sin(cameraYaw) - wz * Math.cos(cameraYaw);
+          const followInput = worldToCameraRelative(wx, wz, cameraYaw);
+          inputRight = followInput.right;
+          inputForward = followInput.forward;
         } else {
           inputRight = 0; inputForward = 0;
         }
@@ -6460,9 +6494,9 @@ function update(dt) {
     const sprint = keys.has('ShiftLeft') || keys.has('ShiftRight') || isRunning;
     const needsPenalty = needs.hunger < 15 || needs.energy < 12 ? 0.72 : 1;
     const speed = (sprint ? 8.2 : 4.7) * needsPenalty;
-    const sin = Math.sin(cameraYaw), cos = Math.cos(cameraYaw);
-    const dirX = moveInput.x * cos + moveInput.y * sin;
-    const dirZ = moveInput.x * sin - moveInput.y * cos;
+    const moveDirection = cameraRelativeToWorld(moveInput.x, moveInput.y, cameraYaw);
+    const dirX = moveDirection.x;
+    const dirZ = moveDirection.z;
     const targetVX = dirX * speed, targetVZ = dirZ * speed;
     const hasMoveInput = moveInput.lengthSq() > 0.025;
     const response = hasMoveInput ? (sprint ? 13 : 14) : 18;

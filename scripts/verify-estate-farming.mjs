@@ -88,10 +88,10 @@ check('Crop plot state, selected seeds and watering timestamps persist in V18 sa
   assert.match(source,/plot\.wateredAt=plot\.crop\?clamp\(Number\(saved\.wateredAt\)\|\|0/);
   assert.match(source,/refreshFarmGrowth\(\);refreshFarmProcessing\(\);farmPlots\.forEach/);
 });
-check('Runtime diagnostics, Garden Market release notes, and the 0.40.15 test command are synchronized',()=>{
+check('Runtime diagnostics, Garden Market release notes, and the 0.40.16 test command are synchronized',()=>{
   assert.match(source,/farming: \{ selectedSeed:farmState\.selectedSeed, plots:farmState\.plots\.map/);
   assert.match(readme,/Prototype 40\.1 — Estate Allotment Farming & Harvest Economy/);
-  assert.equal(pkg.version,'0.40.15');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.15'));assert.match(pkg.scripts['test:game'],/test:farm/);
+  assert.equal(pkg.version,'0.40.16');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.16'));assert.match(pkg.scripts['test:game'],/test:farm/);
 });
 console.log(`\n${passed} Estate Allotment Farming and Harvest Economy checks passed.`);

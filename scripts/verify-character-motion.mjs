@@ -49,7 +49,9 @@ check('Jump and fall have airborne poses, and landing captures impact for a comp
 });
 check('Movement uses responsive acceleration and braking while retaining collision and camera-relative direction', () => {
   assert.match(source, /const response = hasMoveInput \? \(sprint \? 13 : 14\) : 18/);
-  assert.match(source, /const dirX = moveInput\.x \* cos \+ moveInput\.y \* sin/);
+  assert.match(source, /cameraRelativeToWorld\(moveInput\.x, moveInput\.y, cameraYaw\)/);
+  assert.match(source, /const dirX = moveDirection\.x/);
+  assert.match(source, /const dirZ = moveDirection\.z/);
   assert.match(source, /if \(collides\(nx, player\.position\.z\)\)/);
   assert.match(source, /if \(collides\(player\.position\.x, nz\)\)/);
   assert.match(source, /keys\.has\('ShiftLeft'\).*isRunning/);
@@ -67,9 +69,9 @@ check('Standing after sitting resets every articulated joint to a clean neutral 
   assert.match(seatBody, /headPivot\.rotation\.set\(0, 0, 0\)/);
 });
 check('Touch controls still support jump and sprint pointer interactions', () => {
-  assert.match(source, /document\.querySelector\('#jump-btn'\)\.addEventListener\('pointerdown'/);
-  assert.match(source, /document\.querySelector\('#sprint-btn'\)\.addEventListener\('pointerdown'/);
-  assert.match(source, /document\.querySelector\('#sprint-btn'\)\.addEventListener\('pointercancel'/);
+  assert.match(source, /jumpControl\.addEventListener\('pointerdown'/);
+  assert.match(source, /sprintControl\.addEventListener\('pointerdown'/);
+  assert.match(source, /sprintControl\.addEventListener\('pointercancel'/);
   assert.match(source, /stickRing\.addEventListener\('pointermove'/);
 });
 check('Runtime diagnostics expose current character animation state for verification', () => {
@@ -80,13 +82,13 @@ check('Runtime diagnostics expose current character animation state for verifica
 check('V18 save schema keeps existing character state and the current app release is Prototype 39', () => {
   assert.match(source, /version: 18/);
   assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
-  assert.equal(pkg.version, '0.40.15');
+  assert.equal(pkg.version, '0.40.16');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:character/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.15'));
+  assert.ok(html.includes('BUILD 0.40.16'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 
