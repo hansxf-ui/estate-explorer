@@ -67,13 +67,13 @@ check('Shop copy explains that the bookshelf is now usable, and controls describ
   assert.match(readme, /Functional Home Activities & Reading/);
 });
 check('Prototype 39 metadata is consistent across the app and npm package', () => {
-  assert.equal(pkg.version, '0.40.11');
+  assert.equal(pkg.version, '0.40.12');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:home/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.11'));
+  assert.ok(html.includes('BUILD 0.40.12'));
   assert.match(css, /@media\(max-width:700px\)/);
 });
 

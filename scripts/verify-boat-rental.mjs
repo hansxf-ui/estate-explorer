@@ -64,7 +64,7 @@ check('Boat position, heading, trip distance and rental count persist while boar
 check('The marina boat HUD is included in runtime diagnostics and release notes',()=>{
   assert.match(source,/boating: inBoat, boat: \{ speed: boatSpeed, heading: boatHeading, tripDistance: boatTripDistance, rentals: boatRentalCount/ );
   assert.match(readme,/Prototype 39\.5 — Harborfront Speedboat Rental & Driving/);
-  assert.equal(pkg.version,'0.40.11');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.11'));assert.match(pkg.scripts['test:game'],/test:boat/);
+  assert.equal(pkg.version,'0.40.12');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.12'));assert.match(pkg.scripts['test:game'],/test:boat/);
 });
 console.log(`\n${passed} marina speedboat rental and driving checks passed.`);

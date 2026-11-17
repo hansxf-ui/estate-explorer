@@ -124,13 +124,13 @@ check('The new dashboard remains responsive and describes the farm-to-table work
   assert.match(readme,/Prototype 40\.8 — Corner Cafe Farm-to-Table Supply Chain/);
   assert.match(readme,/save schema remains V18/i);
 });
-check('The Prototype 40.11 app, package, lockfile and aggregate test runner stay synchronized',()=>{
-  assert.equal(pkg.version,'0.40.11');
+check('The Prototype 40.12 app, package, lockfile and aggregate test runner stay synchronized',()=>{
+  assert.equal(pkg.version,'0.40.12');
   assert.equal(lock.version,pkg.version);
   assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.11</title>'));
-  assert.ok(html.includes('EXPLORER · PROTOTYPE 40.11'));
-  assert.ok(html.includes('BUILD 0.40.11'));
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.12</title>'));
+  assert.ok(html.includes('EXPLORER · PROTOTYPE 40.12'));
+  assert.ok(html.includes('BUILD 0.40.12'));
   assert.match(pkg.scripts['test:game'],/test:cafe-supply/);
 });
 console.log(`\n${passed} Corner Cafe farm-to-table integration checks passed.`);

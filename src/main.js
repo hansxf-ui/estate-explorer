@@ -8,14 +8,8 @@ let lastRenderCostMs = 0;
 let measuredFps = 0;
 let perfSampleFrames = 0;
 let perfSampleStartedAt = 0;
-let perfOverlay = null;
-if (new URLSearchParams(location.search).has('perf')) {
-  perfOverlay = document.createElement('pre');
-  perfOverlay.id = 'estate-perf-overlay';
-  perfOverlay.style.cssText = 'position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));z-index:2147483647;margin:0;padding:9px 11px;border:1px solid rgba(190,230,210,.35);border-radius:8px;background:rgba(4,12,16,.94);color:#d8f3e8;font:12px/1.5 ui-monospace,monospace;white-space:pre;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.35);';
-  perfOverlay.textContent = 'ESTATE PERF · STARTING…\nWaiting for WebGL renderer';
-  document.body.append(perfOverlay);
-}
+const perfOverlay = document.querySelector('#estate-perf-overlay');
+if (perfOverlay && !perfOverlay.hidden) perfOverlay.textContent = 'ESTATE PERF · MODULE LOADED\nWaiting for WebGL renderer';
 function setTextIfChanged(element, value) {
   if (!element) return;
   const next = String(value);
@@ -88,7 +82,7 @@ const locationLabel = document.querySelector('#location-label');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.11';
+const GRAPHICS_PREFERENCE_VERSION = '40.12';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;

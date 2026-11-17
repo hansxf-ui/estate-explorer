@@ -10,14 +10,29 @@
   <meta property="og:title" content="Estate Explorer — 3D Life Simulation" />
   <meta property="og:description" content="Explore a modern mansion, meet residents, work and build your daily life in this browser-playable 3D world." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <title>Estate Explorer — Prototype 40.11</title>
+  <title>Estate Explorer — Prototype 40.12</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
+  <pre id="estate-perf-overlay" hidden aria-live="polite" style="position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));z-index:2147483647;margin:0;padding:10px 12px;max-width:calc(100vw - 16px);border:1px solid rgba(190,230,210,.5);border-radius:8px;background:rgba(4,12,16,.97);color:#d8f3e8;font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.45)"></pre>
+  <script>
+    (() => {
+      const overlay = document.getElementById('estate-perf-overlay');
+      if (!new URLSearchParams(window.location.search).has('perf')) return;
+      overlay.hidden = false;
+      overlay.textContent = 'ESTATE PERF · HTML READY\nWaiting for game module';
+      window.addEventListener('error', event => {
+        overlay.textContent = `ESTATE PERF · SCRIPT ERROR\n${String(event.message || 'Unable to load game module').slice(0, 150)}`;
+      }, true);
+      window.addEventListener('unhandledrejection', event => {
+        overlay.textContent = `ESTATE PERF · SCRIPT REJECTION\n${String(event.reason?.message || event.reason || 'Unknown startup rejection').slice(0, 150)}`;
+      });
+    })();
+  </script>
   <main id="game" class="prestart">
     <div id="loading" class="loading"><span class="loader"></span><span>MENYIAPKAN DUNIA</span></div>
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.11</small></div></div>
+      <div class="brand"><span class="brand-mark">E</span><div><b>ESTATE</b><small>EXPLORER · PROTOTYPE 40.12</small></div></div>
       <div class="location"><i></i><span id="location-label">FRONT GARDEN</span></div>
       <div class="life-actions">
         <span class="wallet"><b id="wallet-value">$650</b><small>CASH</small></span>
@@ -318,10 +333,10 @@
         <h2>Estate<br><em>Explorer</em></h2>
         <p>Bangun kehidupanmu. Cari pekerjaan, kumpulkan uang, dan buat rumah ini terasa milikmu.</p>
         <button id="start-btn">MASUK KE DUNIA <span>↗</span></button>
-        <small>PROTOTYPE 40.11 · LIFE SIMULATION</small>
+        <small>PROTOTYPE 40.12 · LIFE SIMULATION</small>
       </div>
     </div>
-    <div class="version">BUILD 0.40.11 <span>•</span> THREE.JS</div>
+    <div class="version">BUILD 0.40.12 <span>•</span> THREE.JS</div>
   </main>
   <script type="module" src="/src/main.js"></script>
 </body>

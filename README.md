@@ -1,5 +1,10 @@
+## Prototype 40.12 — Static HTML Performance Overlay
+- Rebuilt the optional `?perf=1` diagnostic as a static HTML element activated by a tiny inline script in `index.html`, before the Three.js game module is requested. The monitor can therefore appear even if the game bundle fails to download, parse or initialize.
+- Added explicit states for HTML ready, game module loaded, script errors/rejections and WebGL renderer failures. The live module continues to add FPS, update/render timings, draw calls and triangle counts once the game loop starts.
+- Kept the overlay disabled by default; ordinary game sessions and V18 saves are unchanged. The visible `BUILD 0.40.12` marker also makes it easier to confirm which deployment a device has loaded.
+
 ## Prototype 40.11 — Early Performance Overlay Fix
-- Moved the optional `?perf=1` monitor to the very start of module execution, before WebGL renderer creation and game-world setup. It now appears immediately instead of waiting for late startup code.
+- Moved the optional `?perf=1` monitor to the very start of module execution, before WebGL renderer creation and game-world setup. The 40.12 static-HTML implementation supersedes this module-mounted approach.
 - The monitor has a high-contrast, safe-area-aware, topmost HUD style and displays explicit WebGL/startup failure text if initialization stops before the frame loop.
 - Once the renderer is active, the same panel reports live FPS, CPU update time, renderer time, draw calls and triangle count. Normal game sessions without `?perf=1` are unchanged.
 
