@@ -63,9 +63,9 @@ check('Runtime diagnostics expose race progress, times, course geometry and pave
  assert.match(source,/roadRally: \{phase:roadRallyState\.phase,elapsed:roadRallyState\.elapsed,checkpoint:roadRallyState\.checkpoint/);
  assert.match(source,/pavedLoop:roadRallyCourse\.checkpoints\.every/);
 });
-check('Version 0.40.12, release notes, package lock and aggregate tests are synchronized',()=>{
- assert.equal(pkg.version,'0.40.12');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.12'));
+check('Version 0.40.13, release notes, package lock and aggregate tests are synchronized',()=>{
+ assert.equal(pkg.version,'0.40.13');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.13'));
  assert.match(readme,/Prototype 40\.6 — Motor District Road Rally/);
  assert.match(pkg.scripts['test:game'],/test:rally/);
 });

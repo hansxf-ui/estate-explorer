@@ -137,12 +137,12 @@ check('The district commerce panel is included in global UI locking and has resp
   assert.match(css, /@media\(max-width:700px\)\{\.district-panel/);
 });
 check('Prototype 39 app branding, release notes and package lock identify neighbourhood expansion', () => {
-  assert.equal(pkg.version, '0.40.12');
+  assert.equal(pkg.version, '0.40.13');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:district/);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.12'));
+  assert.ok(html.includes('BUILD 0.40.13'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

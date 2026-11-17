@@ -82,8 +82,8 @@ check('Diagnostics expose active route, destination, timing, history and vehicle
  assert.match(source,/markerVisible:courierNetworkMarker\.group\.visible/);
 });
 check('Release metadata and aggregate test runner are synchronized at Prototype 40.5',()=>{
- assert.equal(pkg.version,'0.40.12');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.12'));
+ assert.equal(pkg.version,'0.40.13');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.13'));
  assert.match(readme,/Prototype 40\.5 — City Express Delivery Network/);
  assert.match(pkg.scripts['test:game'],/test:express/);
 });

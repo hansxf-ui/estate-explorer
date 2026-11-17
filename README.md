@@ -1,3 +1,10 @@
+## Prototype 40.13 — iPad Render Budget & Static World Batching
+- Reduced the touch Performance preset render scale to 0.64 (Low: 0.54), and removed the old 0.65 hard floor that prevented adaptive resolution from dropping further. Under sustained frame pressure it now scales down toward 0.45 effective pixels per CSS pixel, then recovers gradually when frame time is healthy.
+- Switched touch-device lit materials to lightweight Lambert shading and disabled filmic tone mapping on touch GPUs. Desktop materials and desktop tone mapping stay unchanged.
+- Added startup instancing for repeated static scene primitives. Repeated fence, road, boundary and architectural meshes that share geometry/material are grouped into InstancedMesh batches, reducing draw calls without changing interactive groups, player objects, NPCs, vehicles or saved furniture.
+- Reduced touch view/fog distances to 170/155 units and throttled background NPC routine, social and body-language simulation to 30 Hz. Player movement, camera and rendering still run on every animation frame.
+- Kept the V18 save format and all gameplay systems intact. Actual frame-rate gains must still be confirmed on the target iPad because the development browser cannot create a WebGL context.
+
 ## Prototype 40.12 — Static HTML Performance Overlay
 - Rebuilt the optional `?perf=1` diagnostic as a static HTML element activated by a tiny inline script in `index.html`, before the Three.js game module is requested. The monitor can therefore appear even if the game bundle fails to download, parse or initialize.
 - Added explicit states for HTML ready, game module loaded, script errors/rejections and WebGL renderer failures. The live module continues to add FPS, update/render timings, draw calls and triangle counts once the game loop starts.

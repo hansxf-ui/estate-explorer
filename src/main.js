@@ -82,7 +82,7 @@ const locationLabel = document.querySelector('#location-label');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.12';
+const GRAPHICS_PREFERENCE_VERSION = '40.13';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
@@ -95,8 +95,8 @@ try {
   console.warn('Browser storage is unavailable; settings will be temporary.', error);
 }
 const graphicsPresets = {
-  performance: { pixelRatio: 0.72, shadows: false, shadowMap: 512, dynamicLights: false },
-  low: { pixelRatio: 0.58, shadows: false, shadowMap: 512, dynamicLights: false },
+  performance: { pixelRatio: 0.64, shadows: false, shadowMap: 512, dynamicLights: false },
+  low: { pixelRatio: 0.54, shadows: false, shadowMap: 512, dynamicLights: false },
   balanced: { pixelRatio: 1.35, shadows: true, shadowMap: 1024, dynamicLights: true },
   high: { pixelRatio: 1.7, shadows: true, shadowMap: 2048, dynamicLights: true }
 };
@@ -106,7 +106,7 @@ let lastAnimationTimestamp = 0;
 let lastAdaptiveResolutionUpdate = 0;
 function effectiveRenderPixelRatio() {
   const preset = graphicsPresets[graphicsQuality] || graphicsPresets.performance;
-  return Math.max(0.65, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
+  return Math.max(0.40, Math.min(devicePixelRatio || 1, preset.pixelRatio * adaptiveRenderScale));
 }
 function updateRendererResolution() {
   if (!renderer) return;
@@ -134,8 +134,8 @@ const nightSunColor = new THREE.Color(0x8da9dc);
 const daySunColor = new THREE.Color(0xffe4bd);
 const blendedSkyColor = new THREE.Color();
 
-const WORLD_VIEW_DISTANCE = isTouchDevice ? 210 : 260;
-const WORLD_FOG_DISTANCE = isTouchDevice ? 195 : 270;
+const WORLD_VIEW_DISTANCE = isTouchDevice ? 170 : 260;
+const WORLD_FOG_DISTANCE = isTouchDevice ? 155 : 270;
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, WORLD_VIEW_DISTANCE);
 camera.position.set(0, 5, 34);
 const hangoutCameraTarget = new THREE.Vector3();
@@ -213,7 +213,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = isTouchDevice ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.12;
 root.insertBefore(renderer.domElement, root.firstChild);
 renderer.domElement.addEventListener('webglcontextlost', event => {
@@ -270,14 +270,21 @@ const fill = new THREE.DirectionalLight(0xb6d8ff, 0.8);
 fill.position.set(35, 18, -35);
 scene.add(fill);
 
-const mat = (color, roughness = 0.8, metalness = 0) => new THREE.MeshStandardMaterial({ color, roughness, metalness });
+function createLitMaterial(parameters = {}) {
+  if (isTouchDevice) {
+    const { roughness, metalness, ...lightweightParameters } = parameters;
+    return new THREE.MeshLambertMaterial(lightweightParameters);
+  }
+  return new THREE.MeshStandardMaterial(parameters);
+}
+const mat = (color, roughness = 0.8, metalness = 0) => createLitMaterial({ color, roughness, metalness });
 const grassMat = mat(0x71875c);
 const concreteMat = mat(0xb8b5a8, 0.95);
 const wallMat = mat(0xe4e0d3, 0.85);
 const darkWallMat = mat(0x626f69, 0.9);
 const trimMat = mat(0x323d3a, 0.45, 0.25);
 function createSurfaceMaterial(parameters) {
-  if (isTouchDevice) { const { transmission, ...standardParameters } = parameters; return new THREE.MeshStandardMaterial(standardParameters); }
+  if (isTouchDevice) { const { transmission, roughness, metalness, ...lightweightParameters } = parameters; return new THREE.MeshLambertMaterial(lightweightParameters); }
   return new THREE.MeshPhysicalMaterial(parameters);
 }
 const glassMat = createSurfaceMaterial({ color: 0x8bbac0, roughness: isTouchDevice ? 0.28 : 0.16, metalness: isTouchDevice ? 0.08 : 0.15, transparent: true, opacity: 0.48, transmission: 0.15 });
@@ -330,6 +337,48 @@ function group(parent, x = 0, y = 0, z = 0) {
   g.position.set(x, y, z);
   parent.add(g);
   return g;
+}
+
+// The town contains many repeated static fence, road and architectural primitives.
+// Batch only direct scene children: these have no animated parent transform and can
+// safely share one world-space InstancedMesh without changing gameplay objects.
+let staticBatchStats = { batches: 0, sourceMeshes: 0, drawCallsSaved: 0 };
+function batchStaticScenePrimitives() {
+  scene.updateMatrixWorld(true);
+  const candidates = new Map();
+  for (const mesh of [...scene.children]) {
+    if (!mesh.isMesh || !mesh.visible || !mesh.geometry || !sharedPrimitiveGeometrySet.has(mesh.geometry)) continue;
+    if (!mesh.material || Array.isArray(mesh.material) || mesh.material.transparent || mesh.material.depthWrite === false) continue;
+    if (mesh.onBeforeRender || mesh.morphTargetInfluences || mesh.isSkinnedMesh) continue;
+    const key = [mesh.geometry.uuid, mesh.material.uuid, mesh.castShadow ? 1 : 0, mesh.receiveShadow ? 1 : 0, mesh.renderOrder, mesh.layers.mask].join('|');
+    if (!candidates.has(key)) candidates.set(key, []);
+    candidates.get(key).push(mesh);
+  }
+  let batches = 0, sourceMeshes = 0, drawCallsSaved = 0;
+  for (const meshes of candidates.values()) {
+    if (meshes.length < 2) continue;
+    const first = meshes[0];
+    const instances = new THREE.InstancedMesh(first.geometry, first.material, meshes.length);
+    instances.name = `Static batch · ${first.geometry.type} · ${meshes.length}`;
+    instances.castShadow = first.castShadow;
+    instances.receiveShadow = first.receiveShadow;
+    instances.renderOrder = first.renderOrder;
+    instances.layers.mask = first.layers.mask;
+    instances.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    for (let index = 0; index < meshes.length; index++) {
+      meshes[index].updateWorldMatrix(true, false);
+      instances.setMatrixAt(index, meshes[index].matrixWorld);
+    }
+    instances.instanceMatrix.needsUpdate = true;
+    instances.computeBoundingSphere();
+    scene.add(instances);
+    for (const mesh of meshes) scene.remove(mesh);
+    batches++;
+    sourceMeshes += meshes.length;
+    drawCallsSaved += meshes.length - 1;
+  }
+  staticBatchStats = { batches, sourceMeshes, drawCallsSaved };
+  return staticBatchStats;
 }
 
 // Ground and landscape
@@ -500,7 +549,7 @@ box(house, 2.25, 1.08, -2.2, 1.5, 0.16, 1.35, mat(0x929b8b));
 
 // Media wall and television.
 box(house, -1.0, 2.15, -9.55, 5.6, 2.65, 0.22, woodMat);
-const tvScreenMat = new THREE.MeshStandardMaterial({ color: 0x101b20, emissive: 0x0d1d24, emissiveIntensity: 0.35, roughness: 0.2, metalness: 0.15 });
+const tvScreenMat = createLitMaterial({ color: 0x101b20, emissive: 0x0d1d24, emissiveIntensity: 0.35, roughness: 0.2, metalness: 0.15 });
 box(house, -1.0, 2.22, -9.40, 4.75, 2.24, 0.055, tvScreenMat, false, false);
 box(house, -1.0, 0.55, -9.05, 5.9, 0.55, 0.72, woodMat);
 box(house, -1.0, 0.86, -8.68, 5.7, 0.08, 0.65, goldMat, false, false);
@@ -744,7 +793,7 @@ let vehicleDustCursor = 0;
 let vehicleDustEmitTimer = 0;
 const vehicleCarModel=group(vehicle);
 const vehicleBody = group(vehicleCarModel);
-const vehiclePaint = new THREE.MeshStandardMaterial({ color: 0x263b3b, roughness: 0.28, metalness: 0.58 });
+const vehiclePaint = createLitMaterial({ color: 0x263b3b, roughness: 0.28, metalness: 0.58 });
 const vehicleGarageState={built:false,engine:0,handling:0,efficiency:0,paint:'midnight'};
 const vehiclePaintOptions={
   midnight:{name:'Midnight Teal',hex:0x263b3b,price:0},
@@ -757,7 +806,7 @@ function applyVehiclePaint(){vehiclePaint.color.setHex(vehiclePaintOptions[vehic
 const vehicleGlass = createSurfaceMaterial({ color: 0x9dbdc0, roughness: 0.12, metalness: 0.15, transparent: true, opacity: 0.52 });
 const tireMat = mat(0x202426, 0.92);
 const hubMat = mat(0xb6b6aa, 0.32, 0.78);
-const vehicleBrakeMat = new THREE.MeshStandardMaterial({ color: 0x8d3930, emissive: 0x6d100b, emissiveIntensity: 0.35, roughness: 0.38 });
+const vehicleBrakeMat = createLitMaterial({ color: 0x8d3930, emissive: 0x6d100b, emissiveIntensity: 0.35, roughness: 0.38 });
 box(vehicleBody, 0, 0.82, 0, 2.18, 0.66, 4.65, vehiclePaint);
 box(vehicleBody, 0, 1.35, -0.2, 1.92, 0.92, 2.45, vehiclePaint);
 box(vehicleBody, 0, 1.42, -0.2, 1.78, 0.78, 2.28, vehicleGlass, false, false);
@@ -1158,7 +1207,7 @@ const roadRallyCourse={
 };
 function buildRoadRallyGate(point,title,subtitle,color=0xd9c18d){
   const gate=group(scene,point.x,0.04,point.z);gate.rotation.y=point.yaw||0;
-  const frameMat=new THREE.MeshStandardMaterial({color,roughness:0.35,metalness:0.32,emissive:color,emissiveIntensity:0.34});
+  const frameMat=createLitMaterial({color,roughness:0.35,metalness:0.32,emissive:color,emissiveIntensity:0.34});
   for(const side of [-1,1]){
     box(gate,side*3.72,1.52,0,0.2,3.04,0.2,frameMat,false,false);
     box(gate,side*3.72,3.1,0,0.42,0.12,0.42,goldMat,false,false);
@@ -1301,7 +1350,7 @@ const boatRaceCourse = {
 };
 function buildBoatRaceGate(x,z,axis,title,subtitle,color=0x8ed8d1){
   const gate=group(scene,x,0,z);gate.rotation.y=axis;
-  const accent=new THREE.MeshStandardMaterial({color,roughness:0.38,metalness:0.28,emissive:color,emissiveIntensity:0.48});
+  const accent=createLitMaterial({color,roughness:0.38,metalness:0.28,emissive:color,emissiveIntensity:0.48});
   const floatMat=mat(0xf0eee2,0.42,0.16);
   for(const side of [-1,1]){
     const buoy=group(gate,side*2.22,0,0);
@@ -6220,6 +6269,8 @@ function updateVehicleDust(dt) {
   }
 }
 
+let npcSimulationAccumulator = 0;
+let lastFollowButtonState = '';
 function update(dt) {
   let nearest = null, nearestDistance = Infinity;
   updateDayNight(dt);
@@ -6232,14 +6283,23 @@ function update(dt) {
   updateBoatSalvage(dt);
   updateDive(dt);
   updateWorldDropPhysics(dt);
-  npcs.forEach(npc => updateNpc(npc,dt));
-  updateNpcSocial(dt);
-  npcs.forEach(npc => updateNpcMood(npc,dt));
-  npcs.forEach(npc => updateNpcBodyLanguage(npc,dt));
-  updateNpcPlayerSocial(dt);
-  followButton.classList.toggle('hidden', !hangoutSession);
-  followButton.classList.toggle('active', hangoutFollowEnabled);
-  setTextIfChanged(followButton, hangoutFollowEnabled ? 'FOLLOW ON' : 'FOLLOW OFF');
+  npcSimulationAccumulator += dt;
+  if (!isTouchDevice || npcSimulationAccumulator >= 1 / 30) {
+    const npcDt = isTouchDevice ? Math.min(npcSimulationAccumulator, 0.075) : dt;
+    npcSimulationAccumulator = 0;
+    npcs.forEach(npc => updateNpc(npc, npcDt));
+    updateNpcSocial(npcDt);
+    npcs.forEach(npc => updateNpcMood(npc, npcDt));
+    npcs.forEach(npc => updateNpcBodyLanguage(npc, npcDt));
+    updateNpcPlayerSocial(npcDt);
+  }
+  const followButtonState = `${!!hangoutSession}:${!!hangoutFollowEnabled}`;
+  if (followButtonState !== lastFollowButtonState) {
+    followButton.classList.toggle('hidden', !hangoutSession);
+    followButton.classList.toggle('active', hangoutFollowEnabled);
+    setTextIfChanged(followButton, hangoutFollowEnabled ? 'FOLLOW ON' : 'FOLLOW OFF');
+    lastFollowButtonState = followButtonState;
+  }
   if (isStarted) {
     const movementRequested = keys.has('KeyW') || keys.has('KeyA') || keys.has('KeyS') || keys.has('KeyD')
       || keys.has('ArrowUp') || keys.has('ArrowDown') || keys.has('ArrowLeft') || keys.has('ArrowRight')
@@ -6665,7 +6725,7 @@ window.__estateDebug = () => ({
   started: isStarted,
   keys: [...keys],
   graphicsQuality, autoSaveEnabled, rendererFallbackActive,
-  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, viewDistance:camera.far, fogDistance:scene.fog.far, measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs, uiOpen:hasOpenPanel, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
+  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, viewDistance:camera.far, fogDistance:scene.fog.far, measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs, uiOpen:hasOpenPanel, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), staticBatching:{...staticBatchStats}, renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
   nearby: currentTarget?.id ?? null,
   floorHeight: getGroundHeight(player.position.x, player.position.z),
   objectives: { ...objectiveState },
@@ -6693,11 +6753,11 @@ function animate(timestamp) {
       adaptiveFrameTime += (frameDelta - adaptiveFrameTime) * 0.08;
       if (isTouchDevice && timestamp - lastAdaptiveResolutionUpdate > 2200) {
         lastAdaptiveResolutionUpdate = timestamp;
-        if (adaptiveFrameTime > 22 && adaptiveRenderScale > 0.72) {
-          adaptiveRenderScale = Math.max(0.72, adaptiveRenderScale - 0.08);
+        if (adaptiveFrameTime > 19.5 && adaptiveRenderScale > 0.70) {
+          adaptiveRenderScale = Math.max(0.70, adaptiveRenderScale - 0.08);
           updateRendererResolution();
-        } else if (adaptiveFrameTime < 17.5 && adaptiveRenderScale < 1) {
-          adaptiveRenderScale = Math.min(1, adaptiveRenderScale + 0.04);
+        } else if (adaptiveFrameTime < 15.8 && adaptiveRenderScale < 1) {
+          adaptiveRenderScale = Math.min(1, adaptiveRenderScale + 0.025);
           updateRendererResolution();
         }
       }
@@ -6733,6 +6793,7 @@ try {
 updateSettingsPanel();
 resetDailyTasks();
 renderDailyTasks();
+batchStaticScenePrimitives();
 animate();
 
 function resize() {
