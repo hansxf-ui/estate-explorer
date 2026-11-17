@@ -1,3 +1,11 @@
+## Prototype 40.10 — iPad CPU Hot-Path & Render Budget
+- Removed a recurring UI hot path: the gameplay loop used to query up to 16 DOM panels every time it checked whether controls were locked, with that helper called multiple times per frame. Panel visibility is now cached and refreshed by a MutationObserver, making the per-frame check constant-time.
+- Added no-op DOM setters for frequently refreshed HUD text and progress bars. Vehicle speed/fuel, boat status, interaction labels, race HUD, diving HUD and needs bars no longer replace identical text nodes or rewrite unchanged widths every frame.
+- Tightened the touch Performance preset from 0.95 to 0.72 CSS pixels per CSS pixel, and Low from 0.8 to 0.58. Adaptive resolution still steps down under sustained frame-time pressure and gradually recovers when headroom returns; shadows, MSAA and managed dynamic point lights remain disabled in these presets.
+- Reduced the touch-device camera far plane to 210 units and fog distance to 195 units, trimming distant world rendering while preserving the nearby neighborhood and marina routes. Desktop view distance remains unchanged.
+- Added an opt-in on-device performance overlay via `?perf=1`. It reports measured FPS, device detection, graphics preset, active pixel ratio, JavaScript update/render-call timings, draw calls and triangle count. The overlay is disabled by default.
+- Existing world systems, progression, controls and V18 saves remain intact. Automated tests and production build are run for this milestone; the actual 60 FPS target must still be checked on the user's iPad hardware.
+
 ## Prototype 40.9 — iPad & Mobile Rendering Optimization
 - Added automatic iPad/iPadOS detection, including Safari desktop-site mode. Touch devices now start in a dedicated Performance graphics preset instead of the desktop Balanced preset; desktop defaults and all existing graphics choices remain available.
 - Performance mode renders without MSAA, caps the device pixel ratio at 0.95, disables the directional shadow map and suppresses 32 managed dynamic point lights. The glass window material uses a simpler standard shader on touch devices instead of the transmission path.

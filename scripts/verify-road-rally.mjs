@@ -34,7 +34,7 @@ check('The rally is vehicle-only and can be started from the line using R or the
 check('The rally HUD shows the lap timer, current stage, next checkpoint, progress and medal result',()=>{
  for(const id of ['road-rally-hud','road-rally-stage','road-rally-time','road-rally-next','road-rally-progress-fill','road-rally-result']) assert.ok(html.includes('id="'+id+'"'));
  assert.match(source,/function renderRoadRallyHud\(\)/);
- assert.match(source,/roadRallyProgressFill\.style\.width/);
+ assert.ok(source.includes('setWidthIfChanged(roadRallyProgressFill,'));
  assert.match(css,/\.road-rally-hud/);
 });
 check('All four checkpoints must be passed in sequence before the start/finish line completes the lap',()=>{
@@ -63,9 +63,9 @@ check('Runtime diagnostics expose race progress, times, course geometry and pave
  assert.match(source,/roadRally: \{phase:roadRallyState\.phase,elapsed:roadRallyState\.elapsed,checkpoint:roadRallyState\.checkpoint/);
  assert.match(source,/pavedLoop:roadRallyCourse\.checkpoints\.every/);
 });
-check('Version 0.40.9, release notes, package lock and aggregate tests are synchronized',()=>{
- assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.9'));
+check('Version 0.40.10, release notes, package lock and aggregate tests are synchronized',()=>{
+ assert.equal(pkg.version,'0.40.10');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.10'));
  assert.match(readme,/Prototype 40\.6 — Motor District Road Rally/);
  assert.match(pkg.scripts['test:game'],/test:rally/);
 });

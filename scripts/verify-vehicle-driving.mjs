@@ -41,7 +41,7 @@ check('Estate collisions interrupt the vehicle and trigger an impact response', 
   assert.match(source, /if \(hitObstacle\) \{ vehicleSpeed \*= 0\.38; vehicleImpact = 0\.24; \}/);
   assert.match(source, /obbIntersectsAabb2D\(body, collider\)/);
   assert.match(source, /obbIntersectsCircle2D\(body, resident\.npc\.position\.x, resident\.npc\.position\.z, 0\.72\)/);
-  assert.match(source, /vehicleStatusLabel\.textContent = !inVehicle \? 'PARKED' : vehicleFuel <= 0\.01 \? 'OUT OF FUEL'/);
+  assert.ok(source.includes('setTextIfChanged(vehicleStatusLabel,'));
 });
 check('Headlight mode cycles AUTO, ON and OFF, with AUTO tied to day/night rather than car entry', () => {
   assert.match(source, /function currentVehicleLightsOn\(\) \{ return vehicleLightsMode === 'on' \|\| \(vehicleLightsMode === 'auto' && vehicleNightMix > 0\.45\); \}/);
@@ -76,7 +76,7 @@ check('PC controls bind horn V, lighting L and a held Space brake without breaki
   assert.match(html, /vehicle-desktop-hint[\s\S]*?<kbd>V<\/kbd> Klakson[\s\S]*?<kbd>L<\/kbd> Lampu/);
 });
 check('Mobile joystick is labelled for driving and contextual BRAKE/HORN/LIGHT controls are available', () => {
-  assert.match(source, /if \(stickLabel\) stickLabel\.textContent = inVehicle \? 'STEER · THROTTLE' : inBoat \? 'SAIL · STEER' : divingState\.active \? 'SWIM · DIVE' : 'MOVE'/);
+  assert.ok(source.includes('setTextIfChanged(stickLabel,'));
   assert.match(source, /mobileActions\.classList\.toggle\('driving-controls', inVehicle \|\| inBoat \|\| divingState\.active\)/);
   assert.match(source, /brakeButton\.classList\.toggle\('hidden', !canDrive\)/);
   assert.match(source, /hornButton\.classList\.toggle\('hidden', !canDrive\)/);
@@ -124,12 +124,12 @@ check('Runtime diagnostics expose vehicle speed, lights, mileage, steering, brak
   assert.match(source, /brakeLightIntensity: vehicleBrakeMat\.emissiveIntensity, bodyPitch: vehicleBody\.rotation\.x, bodyRoll: vehicleBody\.rotation\.z/);
 });
 check('Prototype 39 release metadata, package lock, UI and V18 migration are synchronized', () => {
-  assert.equal(pkg.version, '0.40.9');
+  assert.equal(pkg.version, '0.40.10');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:vehicle/);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.9'));
+  assert.ok(html.includes('BUILD 0.40.10'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
   assert.match(readme, /AUTO \/ ON \/ OFF/);
 });

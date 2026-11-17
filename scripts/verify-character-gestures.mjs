@@ -93,13 +93,13 @@ check('Runtime diagnostics expose active gesture, face expression, blink and boo
 check('Character gesture state remains compatible with V18 saves and Prototype 39 release metadata is aligned', () => {
   assert.match(source, /version: 18/);
   assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
-  assert.equal(pkg.version, '0.40.9');
+  assert.equal(pkg.version, '0.40.10');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:gestures/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.9'));
+  assert.ok(html.includes('BUILD 0.40.10'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

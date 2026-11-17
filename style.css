@@ -232,6 +232,6 @@
 .cafe-local-supply-locked{margin:0;padding:11px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.15);font:7px 'DM Mono',monospace;line-height:1.6;letter-spacing:.04em;color:rgba(243,240,229,.53)}
 @media(max-width:700px){.cafe-local-supply-card{grid-template-columns:28px minmax(0,1fr) 76px;gap:6px;padding:7px}.cafe-local-supply-icon{width:27px;height:27px;font-size:16px}.cafe-local-supply-info b{font-size:8px}.cafe-local-supply-info small{font-size:5.5px}.cafe-local-supply-card button{min-width:0;width:76px;font-size:5.5px;padding:6px 3px}.cafe-local-supply-copy{font-size:7px}}
 
-/* Prototype 40.9 — compact four-way graphics preset selector */
+/* Prototype 40.10 — compact four-way graphics preset selector */
 #settings-panel .graphics-quality-section .quality-options{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:700px){#settings-panel .graphics-quality-section .quality-options button{font-size:6px;padding:11px 2px;letter-spacing:.04em}}

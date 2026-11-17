@@ -45,17 +45,17 @@ check('Guest Suite has its own usable sleeping interaction and premium recovery 
 });
 check('Ground height and location naming recognize both expansion rooms',()=>{
   assert.match(source,/const insideExpansion = x < -12\.5/);
-  assert.match(source,/locationLabel\.textContent = 'CREATIVE STUDIO'/);
-  assert.match(source,/locationLabel\.textContent = 'GUEST SUITE'/);
+  assert.ok(source.includes("setTextIfChanged(locationLabel, 'CREATIVE STUDIO')"));
+  assert.ok(source.includes("setTextIfChanged(locationLabel, 'GUEST SUITE')"));
 });
 check('Both new room levels persist as optional V12 fields and are exposed in debug',()=>{
   assert.match(source,/const propertyUpgrades = \{ solar: 0, kitchen: 0, bedroom: 0, terrace: 0, studio: 0, guestSuite: 0 \}/);
   assert.match(source,/Object\.assign\(propertyUpgrades, \{ solar: 0, kitchen: 0, bedroom: 0, terrace: 0, studio: 0, guestSuite: 0 \}, data\.propertyUpgrades \|\| \{\}\)/);
   assert.match(source,/version: 18/);assert.match(source,/expansionRooms:/);
 });
-check('The new rooms are documented and release metadata is consistently 0.40.9',()=>{
-  assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.match(html,/Prototype 40/);assert.ok(html.includes('BUILD 0.40.9'));
+check('The new rooms are documented and release metadata is consistently 0.40.10',()=>{
+  assert.equal(pkg.version,'0.40.10');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.match(html,/Prototype 40/);assert.ok(html.includes('BUILD 0.40.10'));
   assert.match(readme,/Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 console.log(`\n${passed} property expansion integration checks passed.`);

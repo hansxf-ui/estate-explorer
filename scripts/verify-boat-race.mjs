@@ -57,7 +57,7 @@ check('The race HUD displays elapsed time, checkpoint stage, next gate, progress
   for(const id of ['boat-race-hud','boat-race-time','boat-race-stage','boat-race-next','boat-race-progress-fill','boat-race-result'])assert.ok(html.includes(`id="${id}"`));
   assert.match(source,/function renderBoatRaceHud\(\)/);
   assert.match(source,/formatBoatRaceTime\(boatRaceState\.phase==='finished'\?boatRaceState\.lastTime:boatRaceState\.elapsed\)/);
-  assert.match(source,/boatRaceNextLabel\.textContent/);
+  assert.match(source,/setTextIfChanged\(boatRaceNextLabel/);
   assert.match(css,/\.boat-race-hud/);
   assert.match(css,/\.boat-race-start-btn/);
 });
@@ -74,9 +74,9 @@ check('Race best time and daily reward cooldown persist in V18 while an interrup
   assert.match(source,/const saveWhilePiloting = inBoat && !boatDockedAtIsland/);
   assert.match(source,/version: 18/);
 });
-check('The 0.40.9 release metadata, documentation and aggregate test command include the Coastal Circuit',()=>{
-  assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.9'));
+check('The 0.40.10 release metadata, documentation and aggregate test command include the Coastal Circuit',()=>{
+  assert.equal(pkg.version,'0.40.10');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.10'));
   assert.match(readme,/Prototype 39\.7 — Harborfront Coastal Circuit Speedboat Race/);
   assert.match(pkg.scripts['test:game'],/test:race/);
 });

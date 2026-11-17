@@ -63,13 +63,13 @@ check('The boat HUD surfaces nearby cargo, slow-down guidance and daily recovery
   assert.match(source,/function updateBoatSalvage\(dt\)/);
   assert.match(source,/SLOW DOWN/);
   assert.match(source,/CARGO NEARBY · F \/ SALVAGE/);
-  assert.match(source,/boatSalvageCountLabel\.textContent=`\$\{count\}\/3`/);
+  assert.match(source,/setTextIfChanged\(boatSalvageCountLabel, `\$\{count\}\/3`/);
   assert.match(css,/\.boat-salvage-prompt/);
   assert.match(css,/\.boat-salvage-btn/);
 });
-check('The 0.40.9 release metadata and aggregate game test include Coastal Salvage',()=>{
-  assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.9'));
+check('The 0.40.10 release metadata and aggregate game test include Coastal Salvage',()=>{
+  assert.equal(pkg.version,'0.40.10');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.10'));
   assert.match(readme,/Prototype 39\.8 — Coastal Salvage & Sailing Progression/);
   assert.match(pkg.scripts['test:game'],/test:salvage/);
 });

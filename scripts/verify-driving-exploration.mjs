@@ -52,7 +52,7 @@ check('Fuel limits engine power and shows low/out-of-fuel feedback', () => {
   assert.match(source, /BAHAN BAKAR MENIPIS/);
   assert.match(source, /BAHAN BAKAR HABIS/);
   assert.match(html, /id="vehicle-fuel"/);
-  assert.match(source, /vehicleStatusLabel\.textContent = !inVehicle \? 'PARKED' : vehicleFuel <= 0\.01 \? 'OUT OF FUEL' : vehicleFuel < 18 \? 'LOW FUEL'/);
+  assert.match(source, /setTextIfChanged\(vehicleStatusLabel, !inVehicle \? 'PARKED' : vehicleFuel <= 0\.01 \? 'OUT OF FUEL' : vehicleFuel < 18 \? 'LOW FUEL'/);
 });
 check('Northside Fuel is a real interaction with a parked-car and on-foot recovery path', () => {
   assert.match(source, /id:'fuel-stop', x:28, y:0, z:128\.6/);
@@ -139,7 +139,7 @@ check('SUV cleanliness declines only when actually driven off paved areas and ca
   assert.match(source, /vehicleCare: \{ title: 'Fresh Off the Road'/);
   assert.match(source, /recordDailyTaskProgress\('vehicleCare'\)/);
   assert.match(html, /id="vehicle-cleanliness"/);
-  assert.match(source, /cleanLabel\.textContent = `\$\{Math\.round\(100 - vehicleDirt\)\}%`/);
+  assert.match(source, /setTextIfChanged\(vehicleCleanlinessLabel, `\$\{Math\.round\(100 - vehicleDirt\)\}%`/);
 });
 check('Wash-bay apron is classified as paved so the car does not get dirty while being serviced', () => {
   assert.equal(isPavedRoadSurface(-30,138.5), true);
@@ -162,7 +162,7 @@ check('V18 stores fuel, dirt and town discovery while older saves receive safe d
 check('Project still labels this as the Prototype 37 follow-up, not a new prototype number', () => {
   assert.match(readme, /Prototype 37 follow-up — Vehicle Reliability & North Shore Travel/);
   assert.match(readme, /does not introduce a new prototype number/);
-  assert.equal(pkg.version, '0.40.9');
+  assert.equal(pkg.version, '0.40.10');
   assert.match(pkg.scripts['test:game'], /test:driving-exploration/);
 });
 

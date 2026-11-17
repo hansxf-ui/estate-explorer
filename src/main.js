@@ -3,6 +3,16 @@ import { obbIntersectsAabb2D, obbIntersectsCircle2D, vehicleYawRate, isPavedRoad
 import { cafeLocalSupplyCatalog, planCafeLocalSupplyDelivery, consumeCafeBusinessStock } from './cafe-supply.js';
 
 const root = document.querySelector('#game');
+function setTextIfChanged(element, value) {
+  if (!element) return;
+  const next = String(value);
+  if (element.textContent !== next) element.textContent = next;
+}
+function setWidthIfChanged(element, value) {
+  if (!element) return;
+  const next = typeof value === 'number' ? `${value}%` : String(value);
+  if (element.style.width !== next) element.style.width = next;
+}
 const loading = document.querySelector('#loading');
 const startScreen = document.querySelector('#start-screen');
 const startButton = document.querySelector('#start-btn');
@@ -21,6 +31,8 @@ const vehicleGearLabel = document.querySelector('#vehicle-gear');
 const vehicleLightsLabel = document.querySelector('#vehicle-light-state');
 const vehicleTripLabel = document.querySelector('#vehicle-trip');
 const vehicleStatusLabel = document.querySelector('#vehicle-status');
+const vehicleFuelLabel = document.querySelector('#vehicle-fuel');
+const vehicleCleanlinessLabel = document.querySelector('#vehicle-cleanliness');
 const boatHud = document.querySelector('#boat-hud');
 const boatSpeedLabel = document.querySelector('#boat-speed');
 const boatGearLabel = document.querySelector('#boat-gear');
@@ -63,20 +75,21 @@ const locationLabel = document.querySelector('#location-label');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
+const GRAPHICS_PREFERENCE_VERSION = '40.10';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
 try {
   const savedQuality = localStorage.getItem('estate-graphics-quality');
-  hasManualGraphicsPreference = localStorage.getItem('estate-graphics-quality-manual') === 'true';
+  hasManualGraphicsPreference = localStorage.getItem('estate-graphics-quality-manual') === 'true' && localStorage.getItem('estate-graphics-quality-manual-version') === GRAPHICS_PREFERENCE_VERSION;
   graphicsQuality = isTouchDevice && !hasManualGraphicsPreference ? 'performance' : (savedQuality || graphicsQuality);
   autoSaveEnabled = localStorage.getItem('estate-auto-save') !== 'false';
 } catch (error) {
   console.warn('Browser storage is unavailable; settings will be temporary.', error);
 }
 const graphicsPresets = {
-  performance: { pixelRatio: 0.95, shadows: false, shadowMap: 512, dynamicLights: false },
-  low: { pixelRatio: 0.8, shadows: false, shadowMap: 512, dynamicLights: false },
+  performance: { pixelRatio: 0.72, shadows: false, shadowMap: 512, dynamicLights: false },
+  low: { pixelRatio: 0.58, shadows: false, shadowMap: 512, dynamicLights: false },
   balanced: { pixelRatio: 1.35, shadows: true, shadowMap: 1024, dynamicLights: true },
   high: { pixelRatio: 1.7, shadows: true, shadowMap: 2048, dynamicLights: true }
 };
@@ -114,7 +127,9 @@ const nightSunColor = new THREE.Color(0x8da9dc);
 const daySunColor = new THREE.Color(0xffe4bd);
 const blendedSkyColor = new THREE.Color();
 
-const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 260);
+const WORLD_VIEW_DISTANCE = isTouchDevice ? 210 : 260;
+const WORLD_FOG_DISTANCE = isTouchDevice ? 195 : 270;
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, WORLD_VIEW_DISTANCE);
 camera.position.set(0, 5, 34);
 const hangoutCameraTarget = new THREE.Vector3();
 const cameraLookAt = new THREE.Vector3(0, 1.55, 27);
@@ -227,7 +242,10 @@ function applyGraphicsQuality(level, notify = false) {
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
   try {
     localStorage.setItem('estate-graphics-quality', graphicsQuality);
-    if (notify) localStorage.setItem('estate-graphics-quality-manual', 'true');
+    if (notify) {
+      localStorage.setItem('estate-graphics-quality-manual', 'true');
+      localStorage.setItem('estate-graphics-quality-manual-version', GRAPHICS_PREFERENCE_VERSION);
+    }
   } catch {}
   if (typeof updateSettingsPanel === 'function') updateSettingsPanel();
   if (notify) showToast('GRAPHICS: ' + graphicsQuality.toUpperCase());
@@ -1933,6 +1951,7 @@ let previousPinchDistance = 0;
 let joystickPointer = null;
 let joystickVector = new THREE.Vector2();
 const clock = new THREE.Timer();
+const clockLabel = document.querySelector('#clock');
 clock.connect(document);
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
@@ -1998,7 +2017,13 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.add('hidden'), 2300);
 }
 const panelIds = ['dialogue-panel','shop-panel','inventory-panel','style-panel','household-panel','settings-panel','skill-panel','career-panel','daily-tasks-panel','work-finance-panel','property-panel','district-panel','fishing-panel','farm-panel','garage-panel','vehicle-dealer-panel'];
-function isUiOpen() { return !!placementMode || panelIds.some(id => !document.getElementById(id).classList.contains('hidden')); }
+const panelElements = panelIds.map(id => document.getElementById(id)).filter(Boolean);
+let hasOpenPanel = panelElements.some(panel => !panel.classList.contains('hidden'));
+const panelVisibilityObserver = new MutationObserver(() => {
+  hasOpenPanel = panelElements.some(panel => !panel.classList.contains('hidden'));
+});
+panelElements.forEach(panel => panelVisibilityObserver.observe(panel, { attributes: true, attributeFilter: ['class'] }));
+function isUiOpen() { return !!placementMode || hasOpenPanel; }
 function closePanels() {
   const fishingPanel = document.getElementById('fishing-panel');
   if (fishingPanel && !fishingPanel.classList.contains('hidden')) cancelFishingSession();
@@ -2088,11 +2113,11 @@ function renderRoadRallyHud(){
   const visible=inVehicle&&(roadRallyState.phase==='running'||roadRallyState.phase==='finished'&&roadRallyState.resultTimer>0);
   roadRallyHud.classList.toggle('hidden',!visible);roadRallyHud.setAttribute('aria-hidden',String(!visible));
   const total=roadRallyCourse.checkpoints.length,complete=roadRallyState.checkpoint;
-  roadRallyTimeLabel.textContent=formatRoadRallyTime(roadRallyState.phase==='finished'?roadRallyState.lastTime:roadRallyState.elapsed);
-  roadRallyStageLabel.textContent=roadRallyState.phase==='finished'?'FINISH':`${String(Math.min(complete+1,total+1)).padStart(2,'0')} / ${String(total+1).padStart(2,'0')}`;
-  roadRallyNextLabel.textContent=roadRallyState.phase==='finished'?'MOTOR DISTRICT COMPLETE':roadRallyCourse.checkpoints[complete]?.label||'RETURN TO START / FINISH';
-  roadRallyProgressFill.style.width=`${(roadRallyState.phase==='finished'?1:complete/(total+1))*100}%`;
-  roadRallyResultLabel.textContent=roadRallyState.phase==='finished'?`${roadRallyState.lastTier} · BEST ${roadRallyState.bestTime?formatRoadRallyTime(roadRallyState.bestTime):'--:--.--'}`:`BEST ${roadRallyState.bestTime?formatRoadRallyTime(roadRallyState.bestTime):'--:--.--'} · GATES ${complete}/${total}`;
+  setTextIfChanged(roadRallyTimeLabel, formatRoadRallyTime(roadRallyState.phase==='finished'?roadRallyState.lastTime:roadRallyState.elapsed));
+  setTextIfChanged(roadRallyStageLabel, roadRallyState.phase==='finished'?'FINISH':`${String(Math.min(complete+1,total+1)).padStart(2,'0')} / ${String(total+1).padStart(2,'0')}`);
+  setTextIfChanged(roadRallyNextLabel, roadRallyState.phase==='finished'?'MOTOR DISTRICT COMPLETE':roadRallyCourse.checkpoints[complete]?.label||'RETURN TO START / FINISH');
+  setWidthIfChanged(roadRallyProgressFill, `${Math.round((roadRallyState.phase==='finished'?1:complete/(total+1))*100)}%`);
+  setTextIfChanged(roadRallyResultLabel, roadRallyState.phase==='finished'?`${roadRallyState.lastTier} · BEST ${roadRallyState.bestTime?formatRoadRallyTime(roadRallyState.bestTime):'--:--.--'}`:`BEST ${roadRallyState.bestTime?formatRoadRallyTime(roadRallyState.bestTime):'--:--.--'} · GATES ${complete}/${total}`);
 }
 function startRoadRally(){
   if(!inVehicle){showToast('MASUK KE SUV / MOTORCYCLE UNTUK IKUT RALLY');return;}
@@ -2366,8 +2391,8 @@ function updateNeedsHud(force = false) {
     const bar = document.querySelector('#' + key + '-bar');
     const label = document.querySelector('#' + key + '-value');
     if (!bar || !label) continue;
-    bar.style.width = value + '%'; bar.classList.toggle('low', value < 25);
-    label.textContent = value + '%';
+    setWidthIfChanged(bar, value + '%'); bar.classList.toggle('low', value < 25);
+    setTextIfChanged(label, value + '%');
   }
   document.querySelector('#needs-hud').classList.toggle('warning', needs.hunger < 20 || needs.energy < 15 || needs.social < 15 || needs.hygiene < 18 || needs.bladder < 12);
   updateRelationshipHud();
@@ -4169,7 +4194,7 @@ function toggleVehicleLights() {
   if (!inVehicle) return;
   vehicleLightsMode = vehicleLightsMode === 'auto' ? 'on' : vehicleLightsMode === 'on' ? 'off' : 'auto';
   const label = vehicleLightsMode.toUpperCase();
-  vehicleLightsLabel.textContent = label;
+  setTextIfChanged(vehicleLightsLabel, label);
   showToast(`HEADLIGHTS · ${label}`);
   saveGame(false);
 }
@@ -4222,14 +4247,14 @@ function updateDiveHud(){
   underwaterOverlay?.classList.toggle('active',divingState.active);
   if(!divingState.active)return;
   const seconds=Math.ceil(divingState.oxygen),count=divingState.collected.filter(Boolean).length,target=nearestDiveTarget();
-  diveOxygenLabel.textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
-  diveOxygenFill.style.width=`${clamp(divingState.oxygen/divingState.maxOxygen*100,0,100)}%`;
+  setTextIfChanged(diveOxygenLabel, `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`);
+  setWidthIfChanged(diveOxygenFill, `${Math.round(clamp(divingState.oxygen/divingState.maxOxygen*100,0,100))}%`);
   diveOxygenFill.classList.toggle('low',divingState.oxygen<22);
-  diveDepthLabel.textContent=`${Math.max(0,-player.position.y).toFixed(1)} M`;
-  diveTargetLabel.textContent=target?`NEARBY · ${target.name} · PRESS E`:'EXPLORE THE REEF';
-  diveProgressLabel.textContent=`${count}/3 DISCOVERED`;
-  interaction.classList.remove('hidden');interactButton.classList.remove('hidden');interactButton.textContent='E';
-  interactionText.textContent=target?`E · Collect ${target.name}`:'E · Surface';
+  setTextIfChanged(diveDepthLabel, `${Math.max(0,-player.position.y).toFixed(1)} M`);
+  setTextIfChanged(diveTargetLabel, target?`NEARBY · ${target.name} · PRESS E`:'EXPLORE THE REEF');
+  setTextIfChanged(diveProgressLabel, `${count}/3 DISCOVERED`);
+  interaction.classList.remove('hidden');interactButton.classList.remove('hidden');setTextIfChanged(interactButton, 'E');
+  setTextIfChanged(interactionText, target?`E · Collect ${target.name}`:'E · Surface');
 }
 function startDive(){
   if(divingState.active)return;
@@ -4324,17 +4349,17 @@ function updateBoatSalvage(dt){
   const nearby=nearestBoatSalvage();
   const available=!!nearby;
   boatSalvageButton?.classList.toggle('hidden',!inBoat||!available);
-  if(boatSalvageButton)boatSalvageButton.textContent=Math.abs(boatSpeed)>2.5?'SLOW':'SALVAGE';
-  if(boatSalvagePrompt){boatSalvagePrompt.classList.toggle('hidden',!inBoat||!available);boatSalvagePrompt.textContent=available?(Math.abs(boatSpeed)>2.5?`SLOW DOWN · ${nearby.name}`:`CARGO NEARBY · F / SALVAGE · ${nearby.name}`):'SAIL TO FIND FLOATING CARGO';}
-  if(boatSalvageCountLabel){const count=boatSalvageState.collected.filter(Boolean).length;boatSalvageCountLabel.textContent=`${count}/3`;}
+  if(boatSalvageButton)setTextIfChanged(boatSalvageButton, Math.abs(boatSpeed)>2.5?'SLOW':'SALVAGE');
+  if(boatSalvagePrompt){boatSalvagePrompt.classList.toggle('hidden',!inBoat||!available);setTextIfChanged(boatSalvagePrompt, available?(Math.abs(boatSpeed)>2.5?`SLOW DOWN · ${nearby.name}`:`CARGO NEARBY · F / SALVAGE · ${nearby.name}`):'SAIL TO FIND FLOATING CARGO');}
+  if(boatSalvageCountLabel){const count=boatSalvageState.collected.filter(Boolean).length;setTextIfChanged(boatSalvageCountLabel, `${count}/3`);}
 }
 function updateBoatHud() {
   const speed=Math.round(Math.abs(boatSpeed)*3.6);
   boatHud.classList.toggle('hidden',!inBoat);boatHud.setAttribute('aria-hidden',String(!inBoat));
-  boatSpeedLabel.textContent=String(speed).padStart(2,'0');
-  boatGearLabel.textContent=boatSpeed < -0.25 ? 'R' : boatSpeed > 0.25 ? 'F' : 'N';
-  boatTripLabel.textContent=boatTripDistance.toFixed(2)+' KM';
-  boatStatusLabel.textContent=!inBoat?'DOCKED':boatRaceState.phase==='running'?'RACE ACTIVE':canDockAtNorthShoal()?'ISLAND DOCK READY':boatBrakeHeld||keys.has('Space')?'BRAKING':speed>3?'CRUISING':'READY';
+  setTextIfChanged(boatSpeedLabel, String(speed).padStart(2,'0'));
+  setTextIfChanged(boatGearLabel, boatSpeed < -0.25 ? 'R' : boatSpeed > 0.25 ? 'F' : 'N');
+  setTextIfChanged(boatTripLabel, boatTripDistance.toFixed(2)+' KM');
+  setTextIfChanged(boatStatusLabel, !inBoat?'DOCKED':boatRaceState.phase==='running'?'RACE ACTIVE':canDockAtNorthShoal()?'ISLAND DOCK READY':boatBrakeHeld||keys.has('Space')?'BRAKING':speed>3?'CRUISING':'READY');
   boatBrakeButton.classList.toggle('hidden',!inBoat);
   if(boatRaceStartButton)boatRaceStartButton.classList.toggle('hidden',!inBoat||!isAtBoatRaceStart()||boatRaceState.phase==='running'||boatRaceState.phase==='finished');
   updateBoatSalvage(0);
@@ -4349,11 +4374,11 @@ function renderBoatRaceHud(){
   if(!visible)return;
   const total=boatRaceCourse.checkpoints.length;
   const complete=boatRaceState.checkpoint;
-  boatRaceTimeLabel.textContent=formatBoatRaceTime(boatRaceState.phase==='finished'?boatRaceState.lastTime:boatRaceState.elapsed);
-  boatRaceStageLabel.textContent=boatRaceState.phase==='finished'?'FINISH':`${String(Math.min(complete+1,total)).padStart(2,'0')} / ${String(total).padStart(2,'0')}`;
-  boatRaceNextLabel.textContent=boatRaceState.phase==='finished'?'COASTAL CIRCUIT COMPLETE':boatRaceCourse.checkpoints[complete]?.label||'RETURN TO START / FINISH';
-  boatRaceProgressFill.style.width=`${(boatRaceState.phase==='finished'?1:complete/(total+1))*100}%`;
-  boatRaceResultLabel.textContent=boatRaceState.phase==='finished'?`TIME ${formatBoatRaceTime(boatRaceState.lastTime)} · BEST ${formatBoatRaceTime(boatRaceState.bestTime)}`:`BEST ${boatRaceState.bestTime>0?formatBoatRaceTime(boatRaceState.bestTime):'--:--.--'} · CHECKPOINTS ${complete}/${total}`;
+  setTextIfChanged(boatRaceTimeLabel, formatBoatRaceTime(boatRaceState.phase==='finished'?boatRaceState.lastTime:boatRaceState.elapsed));
+  setTextIfChanged(boatRaceStageLabel, boatRaceState.phase==='finished'?'FINISH':`${String(Math.min(complete+1,total)).padStart(2,'0')} / ${String(total).padStart(2,'0')}`);
+  setTextIfChanged(boatRaceNextLabel, boatRaceState.phase==='finished'?'COASTAL CIRCUIT COMPLETE':boatRaceCourse.checkpoints[complete]?.label||'RETURN TO START / FINISH');
+  setWidthIfChanged(boatRaceProgressFill, `${Math.round((boatRaceState.phase==='finished'?1:complete/(total+1))*100)}%`);
+  setTextIfChanged(boatRaceResultLabel, boatRaceState.phase==='finished'?`TIME ${formatBoatRaceTime(boatRaceState.lastTime)} · BEST ${formatBoatRaceTime(boatRaceState.bestTime)}`:`BEST ${boatRaceState.bestTime>0?formatBoatRaceTime(boatRaceState.bestTime):'--:--.--'} · CHECKPOINTS ${complete}/${total}`);
 }
 function startBoatRace(){
   if(!inBoat){showToast('NAIK SPEEDBOAT UNTUK MEMULAI COASTAL CIRCUIT');return;}
@@ -4448,15 +4473,13 @@ function updateVehicleHud(braking = false) {
   vehicleHud.classList.toggle('hidden', !inVehicle);
   vehicleHud.setAttribute('aria-hidden', String(!inVehicle));
   const speedKmh = Math.round(Math.abs(vehicleSpeed) * 3.6);
-  vehicleSpeedLabel.textContent = String(speedKmh).padStart(2, '0');
-  vehicleGearLabel.textContent = !inVehicle ? 'P' : vehicleSpeed < -0.35 ? 'R' : vehicleSpeed > 0.35 ? 'D' : 'N';
-  vehicleLightsLabel.textContent = vehicleLightsMode.toUpperCase();
-  vehicleTripLabel.textContent = vehicleTripDistance.toFixed(2) + ' KM';
-  const fuelLabel = document.querySelector('#vehicle-fuel');
-  if (fuelLabel) fuelLabel.textContent = `${Math.ceil(vehicleFuel)}%`;
-  const cleanLabel = document.querySelector('#vehicle-cleanliness');
-  if (cleanLabel) cleanLabel.textContent = `${Math.round(100 - vehicleDirt)}%`;
-  vehicleStatusLabel.textContent = !inVehicle ? 'PARKED' : vehicleFuel <= 0.01 ? 'OUT OF FUEL' : vehicleFuel < 18 ? 'LOW FUEL' : vehicleImpact > 0.08 ? 'COLLISION' : braking ? 'BRAKING' : speedKmh > 4 ? 'CRUISING' : 'READY';
+  setTextIfChanged(vehicleSpeedLabel, String(speedKmh).padStart(2, '0'));
+  setTextIfChanged(vehicleGearLabel, !inVehicle ? 'P' : vehicleSpeed < -0.35 ? 'R' : vehicleSpeed > 0.35 ? 'D' : 'N');
+  setTextIfChanged(vehicleLightsLabel, vehicleLightsMode.toUpperCase());
+  setTextIfChanged(vehicleTripLabel, vehicleTripDistance.toFixed(2) + ' KM');
+  setTextIfChanged(vehicleFuelLabel, `${Math.ceil(vehicleFuel)}%`);
+  setTextIfChanged(vehicleCleanlinessLabel, `${Math.round(100 - vehicleDirt)}%`);
+  setTextIfChanged(vehicleStatusLabel, !inVehicle ? 'PARKED' : vehicleFuel <= 0.01 ? 'OUT OF FUEL' : vehicleFuel < 18 ? 'LOW FUEL' : vehicleImpact > 0.08 ? 'COLLISION' : braking ? 'BRAKING' : speedKmh > 4 ? 'CRUISING' : 'READY');
 }
 function refuelVehicle() {
   if (vehicleSpeed > 0.45) { showToast('BERHENTI TOTAL DI AREA POM'); return; }
@@ -4582,7 +4605,7 @@ function updateFishing(dt) {
   if(fishingState.phase==='waiting'&&fishingState.timer<=0){fishingState.phase='bite';fishingState.timer=fishingState.biteDuration;renderFishingPanel();showToast('PELAMPUNG BERGERAK · TARIK SEKARANG!');return;}
   if(fishingState.phase==='bite'&&fishingState.timer<=0){missFishingCatch();return;}
   const fill=document.querySelector('#fishing-meter-fill');
-  if(fill){const progress=fishingState.phase==='waiting'&&fishingState.totalWait>0?1-fishingState.timer/fishingState.totalWait:fishingState.timer/fishingState.biteDuration;fill.style.width=`${clamp(progress,0,1)*100}%`;}
+  if(fill){const progress=fishingState.phase==='waiting'&&fishingState.totalWait>0?1-fishingState.timer/fishingState.totalWait:fishingState.timer/fishingState.biteDuration;setWidthIfChanged(fill, `${Math.round(clamp(progress,0,1)*100)}%`);}
 }
 
 function visitRiversideLookout() {
@@ -5700,7 +5723,7 @@ followButton.addEventListener('click', () => {
   if (!hangoutSession) return;
   hangoutFollowEnabled = !hangoutFollowEnabled;
   followButton.classList.toggle('active', hangoutFollowEnabled);
-  followButton.textContent = hangoutFollowEnabled ? 'FOLLOW ON' : 'FOLLOW OFF';
+  setTextIfChanged(followButton, hangoutFollowEnabled ? 'FOLLOW ON' : 'FOLLOW OFF');
   showToast(hangoutFollowEnabled ? 'AUTO FOLLOW AKTIF' : 'AUTO FOLLOW DIMATIKAN');
 });
 function updateStick(e) {
@@ -6114,7 +6137,7 @@ function updateDayNight(dt) {
   vehicleNightMix = nightMix;
   blendedSkyColor.copy(nightSkyColor).lerp(daySkyColor, daylight);
   scene.background.copy(blendedSkyColor); scene.fog.color.copy(blendedSkyColor);
-  if(divingState.active){scene.background.setHex(0x082e3e);scene.fog.color.setHex(0x0c4050);scene.fog.near=4;scene.fog.far=37;}else{scene.fog.near=70;scene.fog.far=270;}
+  if(divingState.active){scene.background.setHex(0x082e3e);scene.fog.color.setHex(0x0c4050);scene.fog.near=4;scene.fog.far=37;}else{scene.fog.near=70;scene.fog.far=WORLD_FOG_DISTANCE;}
   hemi.intensity = 0.42 + daylight * 1.6;
   sun.intensity = 0.04 + daylight * 2.9;
   sun.position.set(Math.cos((hour - 12) / 24 * Math.PI * 2) * 58, Math.sin(((hour - 6) / 12) * Math.PI) * 62 + 3, 35);
@@ -6127,7 +6150,7 @@ function updateDayNight(dt) {
   vehicleHeadlights.forEach(light => { light.intensity = headlightsOn && selectedVehicleType==='suv' ? 2.65 : 0; });
   motorcycleHeadlight.intensity=headlightsOn&&selectedVehicleType==='motorcycle'?2.45:0;
   if (Math.floor(gameMinutes) !== lastClockMinute) {
-    document.querySelector('#clock').textContent = formatGameTime();
+    setTextIfChanged(clockLabel, formatGameTime());
     lastClockMinute = Math.floor(gameMinutes);
   }
 }
@@ -6202,7 +6225,7 @@ function update(dt) {
   updateNpcPlayerSocial(dt);
   followButton.classList.toggle('hidden', !hangoutSession);
   followButton.classList.toggle('active', hangoutFollowEnabled);
-  followButton.textContent = hangoutFollowEnabled ? 'FOLLOW ON' : 'FOLLOW OFF';
+  setTextIfChanged(followButton, hangoutFollowEnabled ? 'FOLLOW ON' : 'FOLLOW OFF');
   if (isStarted) {
     const movementRequested = keys.has('KeyW') || keys.has('KeyA') || keys.has('KeyS') || keys.has('KeyD')
       || keys.has('ArrowUp') || keys.has('ArrowDown') || keys.has('ArrowLeft') || keys.has('ArrowRight')
@@ -6244,8 +6267,8 @@ function update(dt) {
       isGrounded=true;let turnRate=0;if(moveInput.lengthSq()>0.025){const yaw=Math.atan2(-dirX,-dirZ),diff=Math.atan2(Math.sin(yaw-avatar.rotation.y),Math.cos(yaw-avatar.rotation.y));turnRate=diff*7;avatar.rotation.y+=diff*Math.min(1,dt*7);}
       updatePlayerLocomotionAnimation(dt,{speed:Math.hypot(velocity.x,velocity.z),grounded:true,verticalSpeed:0,turnRate});
       const swimBeat=Math.sin(performance.now()*0.006);bodyPivot.rotation.x=THREE.MathUtils.damp(bodyPivot.rotation.x,-0.10+swimBeat*0.035,4,dt);armL.rotation.x=THREE.MathUtils.damp(armL.rotation.x,-0.72+swimBeat*0.16,4,dt);armR.rotation.x=THREE.MathUtils.damp(armR.rotation.x,-0.72-swimBeat*0.16,4,dt);kneeL.rotation.x=THREE.MathUtils.damp(kneeL.rotation.x,0.48+swimBeat*0.28,4,dt);kneeR.rotation.x=THREE.MathUtils.damp(kneeR.rotation.x,-0.42-swimBeat*0.28,4,dt);
-      currentTarget=null;interaction.classList.remove('hidden');interactButton.classList.remove('hidden');interactButton.textContent='E';const nearbyDive=nearestDiveTarget(2.75);interactionText.textContent=nearbyDive?`E · Collect ${nearbyDive.name}`:'E · Surface';
-      locationLabel.textContent='NORTH SHOAL · REEF DIVE';updateDiveHud();
+      currentTarget=null;interaction.classList.remove('hidden');interactButton.classList.remove('hidden');setTextIfChanged(interactButton, 'E');const nearbyDive=nearestDiveTarget(2.75);setTextIfChanged(interactionText, nearbyDive?`E · Collect ${nearbyDive.name}`:'E · Surface');
+      setTextIfChanged(locationLabel, 'NORTH SHOAL · REEF DIVE');updateDiveHud();
     }
     else if (inVehicle) {
       const previousSpeed = vehicleSpeed;
@@ -6399,56 +6422,56 @@ function update(dt) {
     currentTarget = nearest;
     interaction.classList.toggle('hidden', !nearest || !!placementMode);
     interactButton.classList.toggle('hidden', !nearest || !!placementMode);
-    if (nearest) interactionText.textContent = nearest.label();
+    if (nearest) setTextIfChanged(interactionText, nearest.label());
 
     if (player.position.y > 4.25) {
-      locationLabel.textContent = 'UPPER FLOOR';
+      setTextIfChanged(locationLabel, 'UPPER FLOOR');
     } else if (player.position.x < -12.5 && player.position.x > -27.5 && player.position.z < -1.1 && propertyUpgrades.studio > 0) {
-      locationLabel.textContent = 'CREATIVE STUDIO';
+      setTextIfChanged(locationLabel, 'CREATIVE STUDIO');
     } else if (player.position.x < -12.5 && player.position.x > -27.5 && player.position.z > -0.9 && propertyUpgrades.guestSuite > 0) {
-      locationLabel.textContent = 'GUEST SUITE';
+      setTextIfChanged(locationLabel, 'GUEST SUITE');
     } else if (entered) {
-      locationLabel.textContent = player.position.z > 1.8 ? 'ENTRANCE HALL' : player.position.x < -5.5 ? 'KITCHEN' : player.position.x > 3.0 ? 'DINING ROOM' : 'LIVING ROOM';
+      setTextIfChanged(locationLabel, player.position.z > 1.8 ? 'ENTRANCE HALL' : player.position.x < -5.5 ? 'KITCHEN' : player.position.x > 3.0 ? 'DINING ROOM' : 'LIVING ROOM');
     } else if (Math.hypot(player.position.x-44,player.position.z-218)<7.0) {
-      locationLabel.textContent = 'NORTH SHOAL ISLAND';
+      setTextIfChanged(locationLabel, 'NORTH SHOAL ISLAND');
     } else if (player.position.z > 183 && player.position.x > 10 && player.position.x < 45) {
-      locationLabel.textContent = 'HARBORFRONT MARINA';
+      setTextIfChanged(locationLabel, 'HARBORFRONT MARINA');
     } else if (player.position.z > 130 && player.position.z < 146 && player.position.x < -20 && player.position.x > -40) {
-      locationLabel.textContent = 'NORTHSIDE AUTO SPA';
+      setTextIfChanged(locationLabel, 'NORTHSIDE AUTO SPA');
     } else if (player.position.z > 143 && player.position.x < -7) {
-      locationLabel.textContent = 'RIVERSIDE LOOKOUT';
+      setTextIfChanged(locationLabel, 'RIVERSIDE LOOKOUT');
     } else if (player.position.z > 118 && player.position.x > 17 && player.position.x < 40) {
-      locationLabel.textContent = 'NORTHSIDE FUEL';
+      setTextIfChanged(locationLabel, 'NORTHSIDE FUEL');
     } else if (player.position.z > 81 && player.position.x < -15) {
-      locationLabel.textContent = 'CORNER CAFE';
+      setTextIfChanged(locationLabel, 'CORNER CAFE');
     } else if (player.position.z > 81 && player.position.x > 15 && player.position.x < 36) {
-      locationLabel.textContent = 'TOWN MARKET';
+      setTextIfChanged(locationLabel, 'TOWN MARKET');
     } else if (player.position.z > 85 && player.position.x > 7 && player.position.x < 21) {
-      locationLabel.textContent = 'TOWN PARK';
+      setTextIfChanged(locationLabel, 'TOWN PARK');
     } else if (player.position.z > 50) {
-      locationLabel.textContent = 'NEIGHBORHOOD';
+      setTextIfChanged(locationLabel, 'NEIGHBORHOOD');
     } else if (player.position.z > 13) {
-      locationLabel.textContent = 'FRONT GARDEN';
+      setTextIfChanged(locationLabel, 'FRONT GARDEN');
     } else if (Math.abs(player.position.x) > 14 && player.position.z < 8) {
-      locationLabel.textContent = 'POOL TERRACE';
+      setTextIfChanged(locationLabel, 'POOL TERRACE');
     } else {
-      locationLabel.textContent = 'GARDEN';
+      setTextIfChanged(locationLabel, 'GARDEN');
     }
     }
     if (playerSeated) {
       currentTarget = null;
       interaction.classList.remove('hidden');
       interactButton.classList.remove('hidden');
-      interactionText.textContent = 'E · Bangkit  /  R · Aktivitas';
-      interactButton.textContent = 'UP';
+      setTextIfChanged(interactionText, 'E · Bangkit  /  R · Aktivitas');
+      setTextIfChanged(interactButton, 'UP');
       seatActivityButton.classList.remove('hidden');
     } else if (inBoat) {
-      locationLabel.textContent = marinaBoat.position.x>32.5&&Math.hypot(marinaBoat.position.x-44,marinaBoat.position.z-218)<12?'BOATING · NORTH SHOAL':'BOATING · HARBORFRONT';
+      setTextIfChanged(locationLabel, marinaBoat.position.x>32.5&&Math.hypot(marinaBoat.position.x-44,marinaBoat.position.z-218)<12?'BOATING · NORTH SHOAL':'BOATING · HARBORFRONT');
       currentTarget=interactables.find(target=>target.id==='marina-boat')||null;
       interaction.classList.remove('hidden');interactButton.classList.remove('hidden');
-      interactionText.textContent=currentTarget.label();interactButton.textContent='E';
+      setTextIfChanged(interactionText, currentTarget.label());setTextIfChanged(interactButton, 'E');
     } else if (inVehicle) {
-      locationLabel.textContent = vehicle.position.z > 183 && vehicle.position.x > 10 && vehicle.position.x < 45 ? 'DRIVING · HARBORFRONT MARINA' : vehicle.position.z > 130 && vehicle.position.z < 146 && vehicle.position.x < -20 && vehicle.position.x > -40 ? 'DRIVING · NORTHSIDE AUTO SPA' : vehicle.position.z > 143 && vehicle.position.x < -7 ? 'DRIVING · RIVERSIDE LOOKOUT' : vehicle.position.z > 118 && vehicle.position.x > 17 && vehicle.position.x < 40 ? 'DRIVING · NORTHSIDE FUEL' : vehicle.position.z > 50 ? 'DRIVING · NEIGHBORHOOD' : `DRIVING · ${currentVehicleName().toUpperCase()}`;
+      setTextIfChanged(locationLabel, vehicle.position.z > 183 && vehicle.position.x > 10 && vehicle.position.x < 45 ? 'DRIVING · HARBORFRONT MARINA' : vehicle.position.z > 130 && vehicle.position.z < 146 && vehicle.position.x < -20 && vehicle.position.x > -40 ? 'DRIVING · NORTHSIDE AUTO SPA' : vehicle.position.z > 143 && vehicle.position.x < -7 ? 'DRIVING · RIVERSIDE LOOKOUT' : vehicle.position.z > 118 && vehicle.position.x > 17 && vehicle.position.x < 40 ? 'DRIVING · NORTHSIDE FUEL' : vehicle.position.z > 50 ? 'DRIVING · NEIGHBORHOOD' : `DRIVING · ${currentVehicleName().toUpperCase()}`);
       nearest = null; nearestDistance = Infinity;
       for (const target of interactables) {
         if (target.id !== 'fuel-stop' && target.id !== 'car-wash') continue;
@@ -6461,10 +6484,10 @@ function update(dt) {
       currentTarget = serviceTarget || vehicleTarget;
       interaction.classList.remove('hidden');
       interactButton.classList.remove('hidden');
-      interactionText.textContent = serviceTarget ? serviceTarget.label() : 'Keluar dari kendaraan';
-      interactButton.textContent = 'E';
+      setTextIfChanged(interactionText, serviceTarget ? serviceTarget.label() : 'Keluar dari kendaraan');
+      setTextIfChanged(interactButton, 'E');
     } else {
-      interactButton.textContent = 'E';
+      setTextIfChanged(interactButton, 'E');
       seatActivityButton.classList.add('hidden');
     }
   }
@@ -6485,9 +6508,9 @@ function update(dt) {
   boatBrakeButton.classList.toggle('hidden', !canPilotBoat);
   jumpButton.classList.toggle('hidden', inVehicle || inBoat);
   sprintButton.classList.toggle('hidden', inVehicle || inBoat);
-  if(divingState.active){jumpButton.textContent='UP';sprintButton.textContent='DOWN';}
-  else{jumpButton.textContent='JUMP';sprintButton.textContent='RUN';}
-  if (stickLabel) stickLabel.textContent = inVehicle ? 'STEER · THROTTLE' : inBoat ? 'SAIL · STEER' : divingState.active ? 'SWIM · DIVE' : 'MOVE';
+  if(divingState.active){setTextIfChanged(jumpButton, 'UP');setTextIfChanged(sprintButton, 'DOWN');}
+  else{setTextIfChanged(jumpButton, 'JUMP');setTextIfChanged(sprintButton, 'RUN');}
+  if (stickLabel) setTextIfChanged(stickLabel, inVehicle ? 'STEER · THROTTLE' : inBoat ? 'SAIL · STEER' : divingState.active ? 'SWIM · DIVE' : 'MOVE');
   mobileActions.classList.toggle('driving-controls', inVehicle || inBoat || divingState.active);
   dropButton.classList.toggle('hidden', !canHandleWorldObjects);
   placeButton.classList.toggle('hidden', !canHandleWorldObjects);
@@ -6628,7 +6651,7 @@ window.__estateDebug = () => ({
   started: isStarted,
   keys: [...keys],
   graphicsQuality, autoSaveEnabled, rendererFallbackActive,
-  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
+  performance: { deviceClass:isAppleTablet?'ipad':isTouchDevice?'touch':'desktop', pixelRatio:renderer.getPixelRatio(), adaptiveRenderScale, antialias:renderer.getContextAttributes()?.antialias??null, shadows:renderer.shadowMap.enabled, viewDistance:camera.far, fogDistance:scene.fog.far, measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs, uiOpen:hasOpenPanel, enabledDynamicLights:[...managedPointLights].filter(light=>light.visible).length, managedDynamicLights:managedPointLights.size, primitiveGeometryCache:Object.fromEntries(Object.entries(primitiveGeometryCache).map(([kind,cache])=>[kind,cache.size])), renderCalls:renderer.info.render.calls, triangles:renderer.info.render.triangles },
   nearby: currentTarget?.id ?? null,
   floorHeight: getGroundHeight(player.position.x, player.position.z),
   objectives: { ...objectiveState },
@@ -6647,6 +6670,19 @@ window.__estateDebug = () => ({
   property: { upgrades: { ...propertyUpgrades }, dailyBill: propertyDailyBill(), rental: { ...guestSuiteRental, rentPerDay:guestSuiteRentPerDay, managementFee:guestSuiteManagementFee, netPerDay:guestSuiteRentPerDay-guestSuiteManagementFee, unlocked:propertyUpgrades.guestSuite>=2 }, visibleRenovations: Object.keys(propertyUpgradeObjects), terraceSeatsUnlocked: propertyUpgrades.terrace > 0 ? seatingSpots.filter(seat => seat.requiresUpgrade === 'terrace').length : 0, expansionRooms: [propertyUpgrades.studio > 0 ? 'studio' : null, propertyUpgrades.guestSuite > 0 ? 'guestSuite' : null].filter(Boolean), activeRoom: player.position.x < -12.5 && player.position.x > -27.5 && player.position.z < -1.1 && propertyUpgrades.studio > 0 ? 'studio' : player.position.x < -12.5 && player.position.x > -27.5 && player.position.z > -0.9 && propertyUpgrades.guestSuite > 0 ? 'guestSuite' : null, collisionLayout: { baseWestWallActive: colliders.includes(westWallCollider), propertyWalls: colliders.filter(c => c.propertyExpansion).map(c => ({ minX:c.minX,maxX:c.maxX,minZ:c.minZ,maxZ:c.maxZ })), atStudioDoor: collides(-12.0,-5.2), atGuestDoor: collides(-12.0,4.9), inStudio: collides(-20,-5.2), studioInterior: collides(-20,-5.2), studioOuterWall: collides(-27.5,-5.2), guestInterior: collides(-20,3.4), guestOuterWall: collides(-27.5,3.4) } },
   placementActive: !!placementMode, placedDecorations: decorPositions.map(item => ({ ...item })), wallet, inventory: { ...inventory }, skills: { ...skills }, skillLevels: Object.fromEntries(Object.keys(skills).map(key => [key, skillProgress(key).level])), fishing: { phase: fishingState.phase, catches: fishingState.catches, lastCatch: fishingState.lastCatch, storedFish: fishStockValue() }, careerShiftsToday, giftsGivenToday: { ...giftsGivenToday }, hangoutsToday: { ...hangoutsToday }, jobPhase, jobCollected: [...jobCollected], jobsCompleted, decorPlaced: { ...decorPlaced }, outfitKey, needs: { ...needs }, relationships: { ...relationships }, routines: npcs.map(item => ({ id: item.id, routine: item.activeRoutine, activity: item.activity, resting: item.restingOnSeat, personality: item.personality.title, mood: item.mood, moodScore: item.moodScore })), npcSocialActive: !!npcSocialSession, gardenJobPhase, gardenWatered: [...gardenWatered], gardenJobsCompleted, gameDay, unpaidBills, billsPaid
 });
+let lastUpdateCostMs = 0;
+let lastRenderCostMs = 0;
+let measuredFps = 0;
+let perfSampleFrames = 0;
+let perfSampleStartedAt = 0;
+let perfOverlay = null;
+if (new URLSearchParams(location.search).has('perf')) {
+  perfOverlay = document.createElement('pre');
+  perfOverlay.id = 'estate-perf-overlay';
+  perfOverlay.style.cssText = 'position:fixed;top:8px;left:8px;z-index:20000;margin:0;padding:8px 10px;border-radius:8px;background:rgba(8,15,22,.88);color:#d8f3e8;font:11px/1.45 ui-monospace,monospace;white-space:pre;pointer-events:none;';
+  perfOverlay.textContent = 'ESTATE PERF · sampling…';
+  document.body.append(perfOverlay);
+}
 function animate(timestamp) {
   requestAnimationFrame(animate);
   if (document.hidden) { lastAnimationTimestamp = 0; return; }
@@ -6669,8 +6705,22 @@ function animate(timestamp) {
   lastAnimationTimestamp = timestamp;
   clock.update(timestamp);
   const dt = Math.min(clock.getDelta(), 0.035);
+  const updateStartedAt = performance.now();
   update(dt);
+  const renderStartedAt = performance.now();
+  lastUpdateCostMs = renderStartedAt - updateStartedAt;
   renderer.render(scene, camera);
+  lastRenderCostMs = performance.now() - renderStartedAt;
+  perfSampleFrames++;
+  if (!perfSampleStartedAt) perfSampleStartedAt = timestamp;
+  if (timestamp - perfSampleStartedAt >= 1000) {
+    measuredFps = perfSampleFrames * 1000 / (timestamp - perfSampleStartedAt);
+    perfSampleFrames = 0;
+    perfSampleStartedAt = timestamp;
+    if (perfOverlay) {
+      perfOverlay.textContent = `ESTATE PERF  ${measuredFps.toFixed(0)} FPS\n${graphicsQuality.toUpperCase()} · ${renderer.getPixelRatio().toFixed(2)} PX · ${isAppleTablet ? 'IPAD' : isTouchDevice ? 'TOUCH' : 'DESKTOP'}\nUPDATE ${lastUpdateCostMs.toFixed(1)}ms · RENDER ${lastRenderCostMs.toFixed(1)}ms\nDRAWS ${renderer.info.render.calls} · TRIS ${(renderer.info.render.triangles / 1000).toFixed(1)}k`;
+    }
+  }
 }
 document.addEventListener('visibilitychange', () => { lastAnimationTimestamp = 0; });
 // Restore the latest local save automatically so returning players can resume immediately.

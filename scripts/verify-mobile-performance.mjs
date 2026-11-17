@@ -20,10 +20,12 @@ check('Touch devices without a manual choice automatically boot in Performance m
   assert.match(source,/isTouchDevice && !hasManualGraphicsPreference \? 'performance'/);
   assert.match(source,/if \(isTouchDevice && !hasManualGraphicsPreference && !notify\) level = rendererFallbackActive \? 'low' : 'performance'/);
   assert.match(source,/estate-graphics-quality-manual/);
+  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.10'/);
+  assert.match(source,/estate-graphics-quality-manual-version/);
 });
 check('Performance mode cuts pixel fill, shadow rendering and dynamic light count',()=>{
-  assert.match(source,/performance: \{ pixelRatio: 0\.95, shadows: false, shadowMap: 512, dynamicLights: false \}/);
-  assert.match(source,/low: \{ pixelRatio: 0\.8, shadows: false, shadowMap: 512, dynamicLights: false \}/);
+  assert.match(source,/performance: \{ pixelRatio: 0\.72, shadows: false, shadowMap: 512, dynamicLights: false \}/);
+  assert.match(source,/low: \{ pixelRatio: 0\.58, shadows: false, shadowMap: 512, dynamicLights: false \}/);
   assert.match(source,/renderer\.shadowMap\.enabled = preset\.shadows/);
   assert.match(source,/sun\.castShadow = preset\.shadows/);
   assert.match(source,/managedPointLights\.forEach\(light => \{ light\.visible = preset\.dynamicLights; \}\)/);
@@ -105,16 +107,43 @@ check('Save schema remains V18 and existing progression data is not reset by the
   assert.match(source,/settings: \{ graphicsQuality, autoSaveEnabled \}/);
   assert.match(source,/if \(data\.settings\?\.graphicsQuality\) applyGraphicsQuality\(data\.settings\.graphicsQuality\)/);
 });
-check('The Prototype 40.9 release notes describe the mobile renderer optimization without claiming an iPad benchmark',()=>{
-  assert.match(readme,/Prototype 40\.9 — iPad & Mobile Rendering Optimization/);
-  assert.match(readme,/actual frame-rate benchmarking still needs to be confirmed on the target iPad/i);
+check('The mobile UI-lock hot path reads cached panel state rather than querying every DOM panel per call',()=>{
+  assert.match(source,/const panelElements = panelIds\.map\(id => document\.getElementById\(id\)\)\.filter\(Boolean\)/);
+  assert.match(source,/new MutationObserver\(\(\) => \{\s*hasOpenPanel = panelElements\.some/);
+  assert.match(source,/function isUiOpen\(\) \{ return !!placementMode \|\| hasOpenPanel; \}/);
+  assert.doesNotMatch(source,/function isUiOpen\(\) \{[^}]*document\.getElementById/);
 });
-check('The Prototype 40.9 package, lockfile, app branding and aggregate tests are synchronized',()=>{
-  assert.equal(pkg.version,'0.40.9');
+check('Frequently refreshed HUD text and percentage widths avoid redundant DOM writes',()=>{
+  assert.match(source,/function setTextIfChanged\(element, value\)/);
+  assert.match(source,/function setWidthIfChanged\(element, value\)/);
+  assert.match(source,/setTextIfChanged\(vehicleSpeedLabel/);
+  assert.match(source,/setTextIfChanged\(vehicleFuelLabel/);
+  assert.match(source,/setWidthIfChanged\(diveOxygenFill/);
+  assert.match(source,/setWidthIfChanged\(roadRallyProgressFill/);
+});
+check('Touch devices receive a shorter camera/fog distance while desktop view distance is preserved',()=>{
+  assert.match(source,/const WORLD_VIEW_DISTANCE = isTouchDevice \? 210 : 260/);
+  assert.match(source,/const WORLD_FOG_DISTANCE = isTouchDevice \? 195 : 270/);
+  assert.match(source,/new THREE\.PerspectiveCamera\(58, innerWidth \/ innerHeight, 0\.1, WORLD_VIEW_DISTANCE\)/);
+  assert.match(source,/scene\.fog\.far=WORLD_FOG_DISTANCE/);
+});
+check('An opt-in performance overlay shows real device FPS and the render workload without affecting normal sessions',()=>{
+  assert.match(source,/new URLSearchParams\(location\.search\)\.has\('perf'\)/);
+  assert.match(source,/measuredFps = perfSampleFrames \* 1000/);
+  assert.match(source,/UPDATE \$\{lastUpdateCostMs/);
+  assert.match(source,/DRAWS \$\{renderer\.info\.render\.calls/);
+  assert.match(source,/measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs/);
+});
+check('The Prototype 40.10 release notes describe CPU hot-path changes and avoid claiming an iPad benchmark',()=>{
+  assert.match(readme,/Prototype 40\.10 — iPad CPU Hot-Path & Render Budget/);
+  assert.match(readme,/actual 60 FPS target must still be checked on the user's iPad hardware/i);
+});
+check('The Prototype 40.10 package, lockfile, app branding and aggregate tests are synchronized',()=>{
+  assert.equal(pkg.version,'0.40.10');
   assert.equal(lock.version,pkg.version);
   assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.9</title>'));
-  assert.ok(html.includes('BUILD 0.40.9'));
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.10</title>'));
+  assert.ok(html.includes('BUILD 0.40.10'));
   assert.match(pkg.scripts['test:game'],/test:performance/);
 });
 console.log(`\n${passed} mobile graphics optimization integration checks passed.`);

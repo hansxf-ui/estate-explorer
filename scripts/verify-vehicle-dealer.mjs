@@ -94,7 +94,9 @@ check('The showroom panel has purchase and fleet selection states, mobile stylin
  assert.match(source,/dealer-fleet-choice/);
  assert.match(source,/vehicle-dealer-panel/);
  assert.match(css,/\.dealer-feature-card/);assert.match(css,/\.dealer-fleet-choice/);
- assert.match(source,/function isUiOpen\(\)\s*\{[^}]*panelIds/);
+ assert.match(source,/const panelElements = panelIds\.map/);
+ assert.match(source,/new MutationObserver/);
+ assert.match(source,/function isUiOpen\(\)\s*\{ return !!placementMode \|\| hasOpenPanel; \}/);
 });
 check('V18 saves preserve selected vehicle, ownership and separate telemetry; older saves retain SUV and locked-bike defaults',()=>{
  assert.match(source,/vehicleFleet: \{ selected:selectedVehicleType, motorcycleOwned, telemetry:/);
@@ -108,8 +110,8 @@ check('Diagnostics expose ownership, active model and per-vehicle telemetry; rel
  assert.match(source,/vehicleFleet:\{selected:selectedVehicleType,motorcycleOwned,telemetry:/);
  assert.match(source,/models:\{suv:vehicleCarModel\.visible,motorcycle:vehicleMotorcycleModel\.visible,rider:motorcycleRider\.visible\}/);
  assert.match(source,/dealer: \{kioskPosition:\[12\.25,60\.2\],deliveryBay:\[dealerVehicleBay\.x,dealerVehicleBay\.z\],bikePrice:motorcyclePurchasePrice\}/);
- assert.equal(pkg.version,'0.40.9');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.9'));assert.match(readme,/Prototype 40\.4 — Estate Motor Showroom & Sport Motorcycle Ownership/);
+ assert.equal(pkg.version,'0.40.10');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.10'));assert.match(readme,/Prototype 40\.4 — Estate Motor Showroom & Sport Motorcycle Ownership/);
  assert.match(pkg.scripts['test:game'],/test:dealer/);
 });
 console.log(`\\n${passed} Estate Motor Showroom and Sport Motorcycle checks passed.`);
