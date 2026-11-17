@@ -80,13 +80,13 @@ check('Runtime diagnostics expose current character animation state for verifica
 check('V18 save schema keeps existing character state and the current app release is Prototype 39', () => {
   assert.match(source, /version: 18/);
   assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
-  assert.equal(pkg.version, '0.40.10');
+  assert.equal(pkg.version, '0.40.11');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:character/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.10'));
+  assert.ok(html.includes('BUILD 0.40.11'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

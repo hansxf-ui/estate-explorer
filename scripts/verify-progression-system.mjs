@@ -67,14 +67,14 @@ check('Daily Planner has responsive progress cards and claim states', () => {
   assert.match(css, /\.daily-task-claim:not\(:disabled\)/);
   assert.match(css, /@media\(max-width:700px\)[\s\S]*?\.daily-tasks-panel/);
 });
-check('Version 0.40.10 and Prototype 39 release metadata is consistent', () => {
+check('Version 0.40.11 and Prototype 39 release metadata is consistent', () => {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const lock = JSON.parse(fs.readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.version, '0.40.10');
+  assert.equal(pkg.version, '0.40.11');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.10'));
+  assert.ok(html.includes('BUILD 0.40.11'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

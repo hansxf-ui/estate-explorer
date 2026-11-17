@@ -1,3 +1,8 @@
+## Prototype 40.11 — Early Performance Overlay Fix
+- Moved the optional `?perf=1` monitor to the very start of module execution, before WebGL renderer creation and game-world setup. It now appears immediately instead of waiting for late startup code.
+- The monitor has a high-contrast, safe-area-aware, topmost HUD style and displays explicit WebGL/startup failure text if initialization stops before the frame loop.
+- Once the renderer is active, the same panel reports live FPS, CPU update time, renderer time, draw calls and triangle count. Normal game sessions without `?perf=1` are unchanged.
+
 ## Prototype 40.10 — iPad CPU Hot-Path & Render Budget
 - Removed a recurring UI hot path: the gameplay loop used to query up to 16 DOM panels every time it checked whether controls were locked, with that helper called multiple times per frame. Panel visibility is now cached and refreshed by a MutationObserver, making the per-frame check constant-time.
 - Added no-op DOM setters for frequently refreshed HUD text and progress bars. Vehicle speed/fuel, boat status, interaction labels, race HUD, diving HUD and needs bars no longer replace identical text nodes or rewrite unchanged widths every frame.

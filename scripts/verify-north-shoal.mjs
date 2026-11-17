@@ -58,9 +58,9 @@ check('Runtime diagnostics identify the new coastal destination and its dock sta
   assert.match(source,/islandDocked: boatDockedAtIsland, dockApproach: canDockAtNorthShoal\(\)/);
   assert.match(source,/playerArea: Math\.hypot\(player\.position\.x-44,player\.position\.z-218\)<7\.0 \? 'north-shoal-island'/);
 });
-check('The North Shoal 0.39.6 milestone and save structure remain intact under the 0.40.10 release',()=>{
-  assert.equal(pkg.version,'0.40.10');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.10'));assert.match(readme,/Prototype 39\.6 — North Shoal Island & Coastal Exploration/);
+check('The North Shoal 0.39.6 milestone and save structure remain intact under the 0.40.11 release',()=>{
+  assert.equal(pkg.version,'0.40.11');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.11'));assert.match(readme,/Prototype 39\.6 — North Shoal Island & Coastal Exploration/);
   assert.match(pkg.scripts['test:game'],/test:shoal/);
 });
 console.log(`\n${passed} North Shoal Island and coastal navigation checks passed.`);

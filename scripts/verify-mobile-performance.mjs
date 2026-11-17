@@ -20,7 +20,7 @@ check('Touch devices without a manual choice automatically boot in Performance m
   assert.match(source,/isTouchDevice && !hasManualGraphicsPreference \? 'performance'/);
   assert.match(source,/if \(isTouchDevice && !hasManualGraphicsPreference && !notify\) level = rendererFallbackActive \? 'low' : 'performance'/);
   assert.match(source,/estate-graphics-quality-manual/);
-  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.10'/);
+  assert.match(source,/GRAPHICS_PREFERENCE_VERSION = '40\.11'/);
   assert.match(source,/estate-graphics-quality-manual-version/);
 });
 check('Performance mode cuts pixel fill, shadow rendering and dynamic light count',()=>{
@@ -127,23 +127,34 @@ check('Touch devices receive a shorter camera/fog distance while desktop view di
   assert.match(source,/new THREE\.PerspectiveCamera\(58, innerWidth \/ innerHeight, 0\.1, WORLD_VIEW_DISTANCE\)/);
   assert.match(source,/scene\.fog\.far=WORLD_FOG_DISTANCE/);
 });
-check('An opt-in performance overlay shows real device FPS and the render workload without affecting normal sessions',()=>{
+check('The opt-in performance overlay mounts before WebGL initialization and reports startup failures visibly',()=>{
   assert.match(source,/new URLSearchParams\(location\.search\)\.has\('perf'\)/);
+  assert.match(source,/ESTATE PERF · STARTING/);
+  assert.match(source,/z-index:2147483647/);
+  assert.match(source,/ESTATE PERF · WEBGL FAILED/);
+  assert.ok(source.indexOf('document.body.append(perfOverlay)') < source.indexOf('new THREE.WebGLRenderer'));
+});
+check('The live performance monitor reports device FPS and the render workload without affecting normal sessions',()=>{
+  assert.match(source,/new URLSearchParams\(location\.search\)\.has\('perf'\)/);
+  assert.match(source,/ESTATE PERF · STARTING/);
+  assert.match(source,/z-index:2147483647/);
+  assert.match(source,/ESTATE PERF · WEBGL FAILED/);
+  assert.ok(source.indexOf('document.body.append(perfOverlay)') < source.indexOf('new THREE.WebGLRenderer'));
   assert.match(source,/measuredFps = perfSampleFrames \* 1000/);
   assert.match(source,/UPDATE \$\{lastUpdateCostMs/);
   assert.match(source,/DRAWS \$\{renderer\.info\.render\.calls/);
   assert.match(source,/measuredFps, updateMs:lastUpdateCostMs, renderMs:lastRenderCostMs/);
 });
-check('The Prototype 40.10 release notes describe CPU hot-path changes and avoid claiming an iPad benchmark',()=>{
-  assert.match(readme,/Prototype 40\.10 — iPad CPU Hot-Path & Render Budget/);
+check('The Prototype 40.11 release notes describe the early-monitor correction',()=>{
+  assert.match(readme,/Prototype 40\.11 — Early Performance Overlay Fix/);
   assert.match(readme,/actual 60 FPS target must still be checked on the user's iPad hardware/i);
 });
-check('The Prototype 40.10 package, lockfile, app branding and aggregate tests are synchronized',()=>{
-  assert.equal(pkg.version,'0.40.10');
+check('The Prototype 40.11 package, lockfile, app branding and aggregate tests are synchronized',()=>{
+  assert.equal(pkg.version,'0.40.11');
   assert.equal(lock.version,pkg.version);
   assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.10</title>'));
-  assert.ok(html.includes('BUILD 0.40.10'));
+  assert.ok(html.includes('<title>Estate Explorer — Prototype 40.11</title>'));
+  assert.ok(html.includes('BUILD 0.40.11'));
   assert.match(pkg.scripts['test:game'],/test:performance/);
 });
 console.log(`\n${passed} mobile graphics optimization integration checks passed.`);

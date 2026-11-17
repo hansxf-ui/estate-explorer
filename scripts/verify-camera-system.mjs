@@ -85,13 +85,13 @@ check('Mobile reset control and desktop camera guidance are responsive', () => {
   assert.match(css, /@media \(pointer:coarse\),\(max-width:700px\)/);
 });
 check('Prototype 39 release metadata is synchronized across app, package and release notes', () => {
-  assert.equal(pkg.version, '0.40.10');
+  assert.equal(pkg.version, '0.40.11');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:camera/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.10'));
+  assert.ok(html.includes('BUILD 0.40.11'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

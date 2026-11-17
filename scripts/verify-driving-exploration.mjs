@@ -162,7 +162,7 @@ check('V18 stores fuel, dirt and town discovery while older saves receive safe d
 check('Project still labels this as the Prototype 37 follow-up, not a new prototype number', () => {
   assert.match(readme, /Prototype 37 follow-up — Vehicle Reliability & North Shore Travel/);
   assert.match(readme, /does not introduce a new prototype number/);
-  assert.equal(pkg.version, '0.40.10');
+  assert.equal(pkg.version, '0.40.11');
   assert.match(pkg.scripts['test:game'], /test:driving-exploration/);
 });
 

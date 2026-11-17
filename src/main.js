@@ -3,6 +3,19 @@ import { obbIntersectsAabb2D, obbIntersectsCircle2D, vehicleYawRate, isPavedRoad
 import { cafeLocalSupplyCatalog, planCafeLocalSupplyDelivery, consumeCafeBusinessStock } from './cafe-supply.js';
 
 const root = document.querySelector('#game');
+let lastUpdateCostMs = 0;
+let lastRenderCostMs = 0;
+let measuredFps = 0;
+let perfSampleFrames = 0;
+let perfSampleStartedAt = 0;
+let perfOverlay = null;
+if (new URLSearchParams(location.search).has('perf')) {
+  perfOverlay = document.createElement('pre');
+  perfOverlay.id = 'estate-perf-overlay';
+  perfOverlay.style.cssText = 'position:fixed;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));z-index:2147483647;margin:0;padding:9px 11px;border:1px solid rgba(190,230,210,.35);border-radius:8px;background:rgba(4,12,16,.94);color:#d8f3e8;font:12px/1.5 ui-monospace,monospace;white-space:pre;pointer-events:none;box-shadow:0 4px 18px rgba(0,0,0,.35);';
+  perfOverlay.textContent = 'ESTATE PERF · STARTING…\nWaiting for WebGL renderer';
+  document.body.append(perfOverlay);
+}
 function setTextIfChanged(element, value) {
   if (!element) return;
   const next = String(value);
@@ -75,7 +88,7 @@ const locationLabel = document.querySelector('#location-label');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.10';
+const GRAPHICS_PREFERENCE_VERSION = '40.11';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
@@ -171,10 +184,16 @@ function showStartupError(title, detail) {
   loading.append(card);
 }
 window.addEventListener('error', event => {
-  if (!startupReady && !startupFailed) showStartupError('Dunia 3D belum siap', 'Terjadi kesalahan saat menyiapkan game. Muat ulang halaman untuk mencoba lagi.');
+  if (!startupReady && !startupFailed) {
+    if (perfOverlay) perfOverlay.textContent = `ESTATE PERF · STARTUP ERROR\n${String(event.message || 'Unknown startup error').slice(0, 110)}`;
+    showStartupError('Dunia 3D belum siap', 'Terjadi kesalahan saat menyiapkan game. Muat ulang halaman untuk mencoba lagi.');
+  }
 });
-window.addEventListener('unhandledrejection', () => {
-  if (!startupReady && !startupFailed) showStartupError('Dunia 3D belum siap', 'Ada proses awal game yang gagal. Muat ulang halaman untuk mencoba lagi.');
+window.addEventListener('unhandledrejection', event => {
+  if (!startupReady && !startupFailed) {
+    if (perfOverlay) perfOverlay.textContent = `ESTATE PERF · STARTUP REJECTION\n${String(event.reason?.message || event.reason || 'Unknown startup rejection').slice(0, 110)}`;
+    showStartupError('Dunia 3D belum siap', 'Ada proses awal game yang gagal. Muat ulang halaman untuk mencoba lagi.');
+  }
 });
 const startupWatchdog = setTimeout(() => {
   if (!startupReady && !startupFailed) showStartupError('Game terlalu lama dimuat', 'Persiapan dunia 3D belum selesai. Browser mungkin kehabisan memori atau tidak menyediakan WebGL.');
@@ -190,6 +209,7 @@ try {
     try { localStorage.setItem('estate-graphics-quality', 'low'); } catch {}
   } catch (fallbackError) {
     console.error('Estate Explorer could not create either a primary or fallback WebGL context:', fallbackError);
+    if (perfOverlay) perfOverlay.textContent = 'ESTATE PERF · WEBGL FAILED\nRenderer context could not be created';
     showStartupError('WebGL tidak tersedia', 'Browser ini tidak berhasil membuat WebGL context, sehingga dunia 3D tidak dapat dijalankan di sesi ini.');
     throw fallbackError;
   }
@@ -6670,19 +6690,6 @@ window.__estateDebug = () => ({
   property: { upgrades: { ...propertyUpgrades }, dailyBill: propertyDailyBill(), rental: { ...guestSuiteRental, rentPerDay:guestSuiteRentPerDay, managementFee:guestSuiteManagementFee, netPerDay:guestSuiteRentPerDay-guestSuiteManagementFee, unlocked:propertyUpgrades.guestSuite>=2 }, visibleRenovations: Object.keys(propertyUpgradeObjects), terraceSeatsUnlocked: propertyUpgrades.terrace > 0 ? seatingSpots.filter(seat => seat.requiresUpgrade === 'terrace').length : 0, expansionRooms: [propertyUpgrades.studio > 0 ? 'studio' : null, propertyUpgrades.guestSuite > 0 ? 'guestSuite' : null].filter(Boolean), activeRoom: player.position.x < -12.5 && player.position.x > -27.5 && player.position.z < -1.1 && propertyUpgrades.studio > 0 ? 'studio' : player.position.x < -12.5 && player.position.x > -27.5 && player.position.z > -0.9 && propertyUpgrades.guestSuite > 0 ? 'guestSuite' : null, collisionLayout: { baseWestWallActive: colliders.includes(westWallCollider), propertyWalls: colliders.filter(c => c.propertyExpansion).map(c => ({ minX:c.minX,maxX:c.maxX,minZ:c.minZ,maxZ:c.maxZ })), atStudioDoor: collides(-12.0,-5.2), atGuestDoor: collides(-12.0,4.9), inStudio: collides(-20,-5.2), studioInterior: collides(-20,-5.2), studioOuterWall: collides(-27.5,-5.2), guestInterior: collides(-20,3.4), guestOuterWall: collides(-27.5,3.4) } },
   placementActive: !!placementMode, placedDecorations: decorPositions.map(item => ({ ...item })), wallet, inventory: { ...inventory }, skills: { ...skills }, skillLevels: Object.fromEntries(Object.keys(skills).map(key => [key, skillProgress(key).level])), fishing: { phase: fishingState.phase, catches: fishingState.catches, lastCatch: fishingState.lastCatch, storedFish: fishStockValue() }, careerShiftsToday, giftsGivenToday: { ...giftsGivenToday }, hangoutsToday: { ...hangoutsToday }, jobPhase, jobCollected: [...jobCollected], jobsCompleted, decorPlaced: { ...decorPlaced }, outfitKey, needs: { ...needs }, relationships: { ...relationships }, routines: npcs.map(item => ({ id: item.id, routine: item.activeRoutine, activity: item.activity, resting: item.restingOnSeat, personality: item.personality.title, mood: item.mood, moodScore: item.moodScore })), npcSocialActive: !!npcSocialSession, gardenJobPhase, gardenWatered: [...gardenWatered], gardenJobsCompleted, gameDay, unpaidBills, billsPaid
 });
-let lastUpdateCostMs = 0;
-let lastRenderCostMs = 0;
-let measuredFps = 0;
-let perfSampleFrames = 0;
-let perfSampleStartedAt = 0;
-let perfOverlay = null;
-if (new URLSearchParams(location.search).has('perf')) {
-  perfOverlay = document.createElement('pre');
-  perfOverlay.id = 'estate-perf-overlay';
-  perfOverlay.style.cssText = 'position:fixed;top:8px;left:8px;z-index:20000;margin:0;padding:8px 10px;border-radius:8px;background:rgba(8,15,22,.88);color:#d8f3e8;font:11px/1.45 ui-monospace,monospace;white-space:pre;pointer-events:none;';
-  perfOverlay.textContent = 'ESTATE PERF · sampling…';
-  document.body.append(perfOverlay);
-}
 function animate(timestamp) {
   requestAnimationFrame(animate);
   if (document.hidden) { lastAnimationTimestamp = 0; return; }
