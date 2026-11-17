@@ -74,9 +74,9 @@ check('Race best time and daily reward cooldown persist in V18 while an interrup
   assert.match(source,/const saveWhilePiloting = inBoat && !boatDockedAtIsland/);
   assert.match(source,/version: 18/);
 });
-check('The 0.40.16 release metadata, documentation and aggregate test command include the Coastal Circuit',()=>{
-  assert.equal(pkg.version,'0.40.16');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.ok(html.includes('BUILD 0.40.16'));
+check('The 0.40.17 release metadata, documentation and aggregate test command include the Coastal Circuit',()=>{
+  assert.equal(pkg.version,'0.40.17');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme,/Prototype 39\.7 — Harborfront Coastal Circuit Speedboat Race/);
   assert.match(pkg.scripts['test:game'],/test:race/);
 });

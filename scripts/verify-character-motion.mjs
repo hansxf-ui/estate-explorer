@@ -60,7 +60,9 @@ check('Standing after sitting resets every articulated joint to a clean neutral 
   const start = source.indexOf('function standFromSeat(');
   const end = source.indexOf('\nfunction interact()', start);
   const body = source.slice(start, end);
-  for (const symbol of ['bodyPivot','torsoMesh','headPivot','hipPivot','legL','legR','kneeL','kneeR','footL','footR','armL','armR','elbowL','elbowR']) assert.ok(body.includes(`${symbol}.rotation`), `${symbol} not reset`);
+  for (const symbol of ['bodyPivot','torsoMesh','headPivot','hipPivot','legL','legR','kneeL','kneeR','footL','footR','armL','armR','elbowL','elbowR']) assert.ok(source.includes(symbol), `${symbol} not declared for shared player-rig reset`);
+  assert.match(source,/for \(const joint of \[bodyPivot,torsoMesh,headPivot,hipPivot,legL,legR,kneeL,kneeR,footL,footR,armL,armR,elbowL,elbowR,wristL,wristR\]\) \{\s*joint\.rotation\.set\(0,0,0\)/);
+  assert.match(body,/resetPlayerRigPose\(seat\.yaw\)/);
   assert.match(body, /playerMotion\.blend = 0/);
   const seatStart = source.indexOf('function sitOnSeat(');
   const seatEnd = source.indexOf('\nfunction doSeatedActivity', seatStart);
@@ -81,14 +83,14 @@ check('Runtime diagnostics expose current character animation state for verifica
 });
 check('V18 save schema keeps existing character state and the current app release is Prototype 39', () => {
   assert.match(source, /version: 18/);
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
-  assert.equal(pkg.version, '0.40.16');
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:character/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

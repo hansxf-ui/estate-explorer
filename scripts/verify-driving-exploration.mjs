@@ -156,13 +156,13 @@ check('V18 stores fuel, dirt and town discovery while older saves receive safe d
   assert.match(source, /vehicleDirt = clamp\(Number\(data\.vehicleSettings\?\.dirt \?\? 0\), 0, 100\)/);
   assert.match(source, /vehicleFuel = clamp\(Number\(data\.vehicleSettings\?\.fuel \?\? 100\), 0, 100\)/);
   assert.match(source, /fuelStop:false, riverside:false/);
-  assert.ok(source.includes('![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version)'));
+  assert.ok(source.includes('isValidSaveEnvelope(data)'));
   assert.match(readme, /V3–V17 saves receive safe defaults/);
 });
 check('Project still labels this as the Prototype 37 follow-up, not a new prototype number', () => {
   assert.match(readme, /Prototype 37 follow-up — Vehicle Reliability & North Shore Travel/);
   assert.match(readme, /does not introduce a new prototype number/);
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.match(pkg.scripts['test:game'], /test:driving-exploration/);
 });
 

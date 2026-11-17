@@ -59,7 +59,7 @@ check('Diagnostics expose workshop and recipe state; version, release notes and 
  assert.match(source,/workshop:\{\.\.\.farmWorkshopState,remainingMinutes:farmWorkshopRemaining\(\),visible:farmWorkshopGroup\.visible\}/);
  assert.match(source,/recipes:Object\.fromEntries\(Object\.values\(farmRecipeDefinitions\)/);
  assert.match(readme,/Prototype 40\.2 — Artisan Farm Goods Workshop/);
- assert.equal(pkg.version,'0.40.16');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
- assert.ok(html.includes('BUILD 0.40.16'));assert.match(pkg.scripts['test:game'],/test:workshop/);
+ assert.equal(pkg.version,'0.40.17');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ assert.ok(html.includes('BUILD 0.40.17'));assert.match(pkg.scripts['test:game'],/test:workshop/);
 });
 console.log(`\n${passed} Artisan Farm Workshop and Product Processing checks passed.`);

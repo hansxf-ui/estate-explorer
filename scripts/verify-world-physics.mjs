@@ -93,16 +93,16 @@ check('Retrieved books, pans and watering cans remain held after their matching 
   assert.match(source, /handheldState\.item === 'wateringCan' && handheldState\.persistent \? null : 'wateringCan'/);
 });
 check('V18 save backups are accepted by the import flow as well as local autosave loading', () => {
-  assert.ok(source.includes("![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version) || !data.player"));
+  assert.ok(source.includes("isValidSaveEnvelope(data)"));
 });
 
 check('World drops and a persistently carried non-courier prop survive V18 save loading', () => {
   assert.match(source, /worldDrops: worldDrops\.map\(drop => \(\{ item: drop\.item, count: drop\.count, persistent: drop\.persistent/);
   assert.match(source, /heldObject: handheldState\.item && handheldState\.persistent \? \{ item: handheldState\.item, count: handheldState\.count \} : null/);
   assert.match(source, /function restoreWorldDrops\(savedDrops\)/);
-  assert.ok(source.includes("![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version) || !data.player"));
-  assert.ok(source.includes("![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version) || !data.player"));
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
+  assert.ok(source.includes("isValidSaveEnvelope(data)"));
+  assert.ok(source.includes("isValidSaveEnvelope(data)"));
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
 });
 check('Old V3–V15 saves remain supported and no world object is restored from an absent field', () => {
   assert.match(source, /const raw = localStorage\.getItem\('estate-explorer-save-v4'\) \|\| localStorage\.getItem\('estate-explorer-save-v3'\)/);
@@ -131,12 +131,12 @@ check('World-object debug data also reports real scene and renderer draw statist
 });
 check('Prototype 39 package metadata, release notes and V18 save schema are synchronized', () => {
   assert.match(source, /version: 18/);
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:world/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

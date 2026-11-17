@@ -32,8 +32,9 @@ check('Player and SUV movement bounds now include the neighbourhood without remo
   assert.match(source, /gatePassage: \{ playerClear: !collides\(0,48\), vehicleClear: !vehicleCollides\(0,48\) \}/);
 });
 check('The player can exit the SUV beside the car anywhere in the expanded district', () => {
-  assert.match(source, /const sideZ = -Math\.sin\(vehicle\.rotation\.y\) \* exitOffset/);
-  assert.match(source, /let exitZ = clamp\(vehicle\.position\.z \+ sideZ, -43, 226\.8\)/);
+  assert.match(source, /const exitOffset=selectedVehicleType==='motorcycle'\?1\.65:2\.45/);
+  assert.match(source, /findSafeSeatExit\(\{ x:vehicle\.position\.x, z:vehicle\.position\.z, yaw:Math\.PI\/2-vehicle\.rotation\.y \}, isPlayerExitBlocked, exitOffset\)/);
+  assert.match(source, /AREA KELUAR KENDARAAN TERHALANG/);
 });
 check('Corner Cafe and Town Market are separately built, signed and furnished explorable interiors', () => {
   assert.match(source, /function buildDistrictShop\(/);
@@ -110,11 +111,11 @@ check('Town discovery flags are saved and restored with safe defaults for older 
 });
 check('Inventory defaults include the new provisions while preserving earlier belongings', () => {
   assert.match(source, /sandwich: 0, apple: 0, water: 0, pastry: 0/);
-  assert.match(source, /data\.inventory \|\| \{\}/);
+  assert.match(source, /data\.inventory && typeof data\.inventory === 'object' \? data\.inventory : \{\}/);
   assert.match(source, /syncCourierHandheld\(\)/);
 });
 check('Imported backups and regular loads accept V3–V17 save versions', () => {
-  assert.ok(source.includes('![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version)'));
+  assert.ok(source.includes('isValidSaveEnvelope(data)'));
   assert.match(source, /version: 18/);
 });
 check('Dropped objects can now be restored in the neighbourhood instead of being clamped to the old estate driveway', () => {
@@ -137,12 +138,12 @@ check('The district commerce panel is included in global UI locking and has resp
   assert.match(css, /@media\(max-width:700px\)\{\.district-panel/);
 });
 check('Prototype 39 app branding, release notes and package lock identify neighbourhood expansion', () => {
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:district/);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

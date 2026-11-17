@@ -59,7 +59,7 @@ check('Work contract limits reset on day rollover and safely migrate old saves',
   assert.match(source, /workLimitDay === gameDay \? clamp\(Math\.floor\(data\.courierShiftsToday/);
   assert.match(source, /workLimitDay === gameDay \? clamp\(Math\.floor\(data\.gardenShiftsToday/);
   assert.match(source, /version: 18/);
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
 });
 check('Starting, advancing and completing contracts persist the changed state immediately', () => {
   assert.match(source, /updateNeedsHud\(true\); updateJobHud\(\); renderWorkFinancePanel\(\); saveGame\(false\);/);
@@ -92,12 +92,12 @@ check('Work board and finance ledger have responsive cards and readable states',
   assert.match(css, /\.finance-totals/);
   assert.match(css, /@media\(max-width:700px\)[\s\S]*?\.work-finance-panel/);
 });
-check('Version 0.40.16 and Prototype 39 metadata are consistent', () => {
-  assert.equal(pkg.version, '0.40.16');
+check('Version 0.40.17 and Prototype 39 metadata are consistent', () => {
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

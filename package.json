@@ -1,6 +1,6 @@
 {
   "name": "estate-explorer",
-  "version": "0.40.16",
+  "version": "0.40.17",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "vercel-build": "npm run build",
     "test:npc": "node scripts/verify-npc-system.mjs",
     "test:core": "node scripts/verify-core-gameplay.mjs",
-    "test:game": "npm run test:core && npm run test:npc && npm run test:progression && npm run test:work && npm run test:property && npm run test:home && npm run test:character && npm run test:camera && npm run test:gestures && npm run test:objects && npm run test:world && npm run test:vehicle && npm run test:driving-exploration && npm run test:district && npm run test:fishing && npm run test:boat && npm run test:shoal && npm run test:race && npm run test:salvage && npm run test:dive && npm run test:rent && npm run test:farm && npm run test:workshop && npm run test:garage && npm run test:dealer && npm run test:express && npm run test:rally && npm run test:cafe-business && npm run test:cafe-supply && npm run test:performance && npm run test:input",
+    "test:game": "npm run test:core && npm run test:npc && npm run test:progression && npm run test:work && npm run test:property && npm run test:home && npm run test:character && npm run test:camera && npm run test:gestures && npm run test:objects && npm run test:world && npm run test:vehicle && npm run test:driving-exploration && npm run test:district && npm run test:fishing && npm run test:boat && npm run test:shoal && npm run test:race && npm run test:salvage && npm run test:dive && npm run test:rent && npm run test:farm && npm run test:workshop && npm run test:garage && npm run test:dealer && npm run test:express && npm run test:rally && npm run test:cafe-business && npm run test:cafe-supply && npm run test:performance && npm run test:input && npm run test:invariants",
     "test:progression": "node scripts/verify-progression-system.mjs",
     "test:work": "node scripts/verify-work-finance.mjs",
     "test:property": "node scripts/verify-property-progression.mjs && node scripts/verify-property-expansion.mjs",
@@ -39,7 +39,8 @@
     "test:cafe-business": "node scripts/verify-cafe-business.mjs",
     "test:cafe-supply": "node scripts/verify-cafe-supply.mjs",
     "test:performance": "node scripts/verify-mobile-performance.mjs",
-    "test:input": "node scripts/verify-mobile-input.mjs"
+    "test:input": "node scripts/verify-mobile-input.mjs",
+    "test:invariants": "node scripts/verify-gameplay-invariants.mjs"
   },
   "dependencies": {
     "three": "0.187.0"

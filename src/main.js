@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { obbIntersectsAabb2D, obbIntersectsCircle2D, vehicleYawRate, isPavedRoadSurface } from './driving-physics.js';
 import { cafeLocalSupplyCatalog, planCafeLocalSupplyDelivery, consumeCafeBusinessStock } from './cafe-supply.js';
 import { cameraRelativeToWorld, worldToCameraRelative, virtualStickVector } from './input-controls.js';
+import { findSafeSeatExit, isValidSaveEnvelope } from './gameplay-invariants.js';
 
 const root = document.querySelector('#game');
 let lastUpdateCostMs = 0;
@@ -87,7 +88,7 @@ const desktopHint = document.querySelector('#desktop-hint');
 // iPadOS may identify an iPad as a desktop Mac in Safari's desktop-site mode.
 const isAppleTablet = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isTouchDevice = isAppleTablet || (navigator.maxTouchPoints > 1 && matchMedia('(pointer: coarse)').matches);
-const GRAPHICS_PREFERENCE_VERSION = '40.16';
+const GRAPHICS_PREFERENCE_VERSION = '40.17';
 let hasManualGraphicsPreference = false;
 let graphicsQuality = isTouchDevice ? 'performance' : 'balanced';
 let autoSaveEnabled = true;
@@ -1828,6 +1829,25 @@ function setHandheldObject(item, count = 1, persistent = false) {
   }
 }
 function clearHandheldObject() { setHandheldObject(null); }
+function resetPlayerRigPose(yaw = 0) {
+  avatar.position.set(0,0,0);
+  avatar.rotation.set(0, Number.isFinite(yaw) ? yaw : 0, 0);
+  for (const joint of [bodyPivot,torsoMesh,headPivot,hipPivot,legL,legR,kneeL,kneeR,footL,footR,armL,armR,elbowL,elbowR,wristL,wristR]) {
+    joint.rotation.set(0,0,0);
+  }
+  playerMotion.state = 'idle';
+  playerMotion.speed = 0;
+  playerMotion.blend = 0;
+  playerMotion.turnRate = 0;
+  playerMotion.landingKick = 0;
+  playerGesture.type = 'none';
+  playerGesture.elapsed = 0;
+  playerGesture.weight = 0;
+  playerGesture.target = null;
+  playerFace.expression = 'neutral';
+  playerFace.expressionTimer = 0;
+  clearHandheldObject();
+}
 function syncCourierHandheld() {
   const count = Math.max(0, Math.min(3, Math.floor(Number(inventory.parcel) || 0)));
   if (count > 0) setHandheldObject('parcel', count, true);
@@ -2027,6 +2047,10 @@ const clockLabel = document.querySelector('#clock');
 clock.connect(document);
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function isPlayerExitBlocked(x, z) {
+  if (x < -51 || x > 51 || z < -43 || z > 226.8 || collides(x, z)) return true;
+  return npcs.some(person => Math.hypot(x-person.npc.position.x, z-person.npc.position.z) < 0.9);
+}
 function collides(x, z) {
   const r = 0.48;
   if (x < -52 || x > 52 || z < -47 || z > 227.5) return true;
@@ -3118,7 +3142,7 @@ async function toggleFullscreen() {
 }
 function exportSaveBackup() {
   try {
-    saveGame(false);
+    if (!saveGame(false)) throw new Error('Could not write current save');
     const raw = localStorage.getItem('estate-explorer-save-v4');
     if (!raw) { showToast('BELUM ADA PROGRESS UNTUK DIEKSPOR'); return; }
     const blob = new Blob([raw], { type: 'application/json' });
@@ -3132,18 +3156,31 @@ function exportSaveBackup() {
 }
 async function importSaveBackup(file) {
   if (!file) return;
+  const saveKey = 'estate-explorer-save-v4';
+  let previousRaw = null;
+  let importWriteAttempted = false;
   try {
     const data = JSON.parse(await file.text());
-    if (![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version) || !data.player || !Number.isFinite(data.player.x) || !Number.isFinite(data.player.z)) {
-      throw new Error('Invalid save backup');
-    }
-    localStorage.setItem('estate-explorer-save-v4', JSON.stringify(data));
+    if (!isValidSaveEnvelope(data)) throw new Error('Invalid save backup');
+    previousRaw = localStorage.getItem(saveKey);
+    localStorage.setItem(saveKey, JSON.stringify(data));
+    importWriteAttempted = true;
     if (!loadGame(false)) throw new Error('Could not restore imported save');
-    saveGame(false);
+    if (!saveGame(false)) throw new Error('Could not persist imported save');
     showToast('SAVE BACKUP BERHASIL DIIMPOR ✓');
   } catch (error) {
+    if (importWriteAttempted) {
+      try {
+        if (previousRaw === null) localStorage.removeItem(saveKey);
+        else localStorage.setItem(saveKey, previousRaw);
+        // A failed import may have changed some runtime fields before throwing.
+        loadGame(false);
+      } catch (rollbackError) {
+        console.warn('Could not roll back failed save import:', rollbackError);
+      }
+    }
     console.warn('Could not import save backup:', error);
-    showToast('FILE BACKUP TIDAK VALID');
+    showToast('FILE BACKUP TIDAK VALID · SAVE SEBELUMNYA DIPERTAHANKAN');
   } finally {
     document.querySelector('#import-save-file').value = '';
   }
@@ -3456,6 +3493,8 @@ function startHangout(npcId, activity) {
       : 'Dengan senang hati. Jalan santai di taman akan menyenangkan.';
   const relationshipReward = plan.relationship + affinityBonus + moodBonus;
   advanceGameTime(plan.minutes);
+  resetDailyHangouts();
+  hangoutsToday[npcId] = 1;
   const destinations = { garden: [-16, 17], pool: [32, 18], coffee: [2, 14], picnic: [13.5, 95.2] };
   const [spotX, spotZ] = destinations[activity];
   npc.restingOnSeat = false;
@@ -3982,7 +4021,7 @@ function updatePlacementTarget(clientX,clientY){
   document.querySelector('#placement-confirm-btn').disabled=!placementMode.valid;
 }
 function startDecorPlacement(item){
-  if(!decorCatalog[item]||(inventory[item]||0)<1||placementMode||inVehicle)return;
+  if(!decorCatalog[item]||(inventory[item]||0)<1||placementMode||inVehicle||inBoat||divingState.active||playerSeated)return;
   const insideGround=Math.abs(player.position.x)<11.2&&player.position.z>-9.2&&player.position.z<7.2;
   const upstairs=player.position.y>4.25&&Math.abs(player.position.x)<6.2&&player.position.z>-9.2&&player.position.z<7.0;
   if(!insideGround&&!upstairs){showToast('MASUK KE DALAM RUMAH UNTUK MENATA FURNITURE');return;}
@@ -4813,13 +4852,20 @@ const interactables = [
       } else {
         player.visible = true;motorcycleRider.visible=false;
         const exitOffset=selectedVehicleType==='motorcycle'?1.65:2.45;
-        const sideX = Math.cos(vehicle.rotation.y) * exitOffset;
-        const sideZ = -Math.sin(vehicle.rotation.y) * exitOffset;
-        let exitX = clamp(vehicle.position.x + sideX, -50, 50);
-        let exitZ = clamp(vehicle.position.z + sideZ, -43, 226.8);
-        if (collides(exitX, exitZ)) { exitX = clamp(vehicle.position.x - sideX, -50, 50); exitZ = clamp(vehicle.position.z - sideZ, -43, 226.8); }
-        player.position.set(exitX, 0, exitZ);
+        const exit = findSafeSeatExit({ x:vehicle.position.x, z:vehicle.position.z, yaw:Math.PI/2-vehicle.rotation.y }, isPlayerExitBlocked, exitOffset);
+        if (!exit) {
+          inVehicle = true;
+          player.visible = false;
+          motorcycleRider.visible = selectedVehicleType === 'motorcycle';
+          showToast('AREA KELUAR KENDARAAN TERHALANG · GESER MOBIL SEDIKIT');
+          updateVehicleHud();
+          return;
+        }
+        player.position.set(clamp(exit.x,-50,50), getGroundHeight(exit.x,exit.z), clamp(exit.z,-43,226.8));
         velocity.set(0,0,0);
+        moveInput.set(0,0);
+        verticalSpeed = 0;
+        isGrounded = true;
         showToast('KENDARAAN DIPARKIR · KAMU KELUAR');
       }
       updateVehicleHud();
@@ -5192,33 +5238,18 @@ function doSeatedActivity() {
 function standFromSeat(notify = true) {
   if (!playerSeated || !activeSeat) return;
   const seat = activeSeat;
-  const exitX = seat.x + Math.sin(seat.yaw) * 0.88;
-  const exitZ = seat.z - Math.cos(seat.yaw) * 0.88;
-  const blocked = collides(exitX, seat.z);
-  const safeX = blocked ? seat.x + Math.cos(seat.yaw) * 0.88 : exitX;
-  const safeZ = blocked ? seat.z + Math.sin(seat.yaw) * 0.88 : exitZ;
-  player.position.set(safeX, getGroundHeight(safeX, safeZ), safeZ);
+  const exit = findSafeSeatExit(seat, isPlayerExitBlocked);
+  if (!exit) {
+    if (notify) showToast('AREA DI SEKITAR KURSI TERHALANG · COBA DARI SISI LAIN');
+    return;
+  }
+  player.position.set(exit.x, getGroundHeight(exit.x, exit.z), exit.z);
   playerSeated = false;
   activeSeat = null;
   seatedActivity = null;
   seatedActivityTimer = 0;
   seatActivityButton.classList.add('hidden');
-  avatar.position.y = 0;
-  avatar.rotation.set(0, seat.yaw, 0);
-  bodyPivot.rotation.set(0, 0, 0);
-  torsoMesh.rotation.set(0, 0, 0);
-  headPivot.rotation.set(0, 0, 0);
-  hipPivot.rotation.set(0, 0, 0);
-  legL.rotation.set(0, 0, 0);
-  legR.rotation.set(0, 0, 0);
-  kneeL.rotation.set(0, 0, 0); kneeR.rotation.set(0, 0, 0);
-  footL.rotation.set(0, 0, 0); footR.rotation.set(0, 0, 0);
-  armL.rotation.set(0, 0, 0);
-  armR.rotation.set(0, 0, 0);
-  elbowL.rotation.set(0, 0, 0); elbowR.rotation.set(0, 0, 0);
-  wristL.rotation.set(0, 0, 0); wristR.rotation.set(0, 0, 0);
-  clearHandheldObject();
-  playerGesture.type = 'none'; playerGesture.weight = 0;
+  resetPlayerRigPose(seat.yaw);
   syncCourierHandheld();
   avatar.position.y = 0;
   playerMotion.blend = 0; playerMotion.state = 'idle'; playerMotion.landingKick = 0;
@@ -5385,6 +5416,7 @@ function interact() {
   let nearest = null, nearestDistance = Infinity;
   for (const target of interactables) {
     if(inBoat&&target.id!=='marina-boat')continue;
+    if(inVehicle&&!['vehicle','fuel-stop','car-wash'].includes(target.id))continue;
     if (target.enabled && !target.enabled()) continue;
     const dx = interactionPosition.x - target.x;
     const dy = (inVehicle||inBoat ? 0 : player.position.y) - target.y;
@@ -5480,6 +5512,7 @@ function advanceGameTime(deltaMinutes) {
   if(cafeBusinessChanged){renderWorkFinancePanel();saveGame(false);}
 }
 function saveGame(notify = true) {
+  try {
   const saveWhilePiloting = inBoat && !boatDockedAtIsland;
   const saveWhileDiving = divingState.active;
   const savePlayerX = saveWhilePiloting ? 23.0 : saveWhileDiving ? 40.0 : playerSeated && activeSeat ? activeSeat.x + Math.sin(activeSeat.yaw) * 0.88 : player.position.x;
@@ -5511,21 +5544,65 @@ function saveGame(notify = true) {
   autoSaveElapsed = 0;
   if (notify) showToast('PROGRESS TERSIMPAN ✓');
   return true;
+  } catch (error) {
+    autoSaveElapsed = 0;
+    console.warn('Could not save Estate Explorer progress:', error);
+    if (notify) showToast('SAVE GAGAL · PENYIMPANAN BROWSER TIDAK TERSEDIA');
+    return false;
+  }
 }
 function loadGame(notify = true) {
   try {
     const raw = localStorage.getItem('estate-explorer-save-v4') || localStorage.getItem('estate-explorer-save-v3');
     if (!raw) { if (notify) showToast('BELUM ADA SAVE DATA'); return false; }
     const data = JSON.parse(raw);
-    if (![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version)) throw new Error('Save version is not supported');
+    if (!isValidSaveEnvelope(data)) throw new Error('Save data is incomplete or unsupported');
+
+    // Loading a save is a hard gameplay-state boundary. Never carry a gesture,
+    // held input, active modal activity or temporary preview into another save.
+    if (placementMode) cancelDecorPlacement(false);
+    releaseAllTransientInput();
+    cancelFishingSession();
+    fishingState.catches = 0;
+    fishingState.lastCatch = '';
+    npcSocialSession = null;
+    npcSocialCooldown = 0;
     hangoutSession = null;
-    clearHandheldObject();
-    playerGesture.type = 'none'; playerGesture.elapsed = 0; playerGesture.weight = 0;
-    if (playerSeated) standFromSeat(false);
-    player.position.set(clamp(data.player.x,-51,51), Math.max(0,data.player.y||0), clamp(data.player.z,-43,226.8));
-    avatar.rotation.y = data.player.yaw || 0;
+    hangoutFollowEnabled = true;
+    currentTarget = null;
+    playerSeated = false;
+    activeSeat = null;
+    seatedActivity = null;
+    seatedActivityTimer = 0;
+    resetPlayerRigPose(data.player.yaw);
+    npcs.forEach(person => {
+      person.playerNearby = false;
+      person.greetingTimer = 0;
+      person.greetingCooldown = 0;
+      person.reaction.visible = false;
+      person.cup.visible = false;
+      person.food.visible = false;
+      person.npc.position.y = 0;
+      person.activeRoutine = '';
+      person.activeSeat = null;
+      person.restingOnSeat = false;
+    });
+    inVehicle = false;
+    inBoat = false;
+    divingState.active = false;
+    vehicleSpeed = 0;
+    boatSpeed = 0;
+    vehicleBrakeHeld = false;
+    boatBrakeHeld = false;
+    velocity.set(0,0,0);
+    moveInput.set(0,0);
+    verticalSpeed = 0;
+    isGrounded = true;
+    isRunning = false;
+    player.position.set(clamp(data.player.x,-51,51), Math.max(0,data.player.y ?? 0), clamp(data.player.z,-43,226.8));
+    avatar.rotation.y = Number.isFinite(data.player.yaw) ? data.player.yaw : 0;
     vehicle.position.set(clamp(data.vehicle.x,-50.2,50.2),0,clamp(data.vehicle.z,-44,224.4));
-    vehicle.rotation.y = data.vehicle.yaw || 0;
+    vehicle.rotation.y = Number.isFinite(data.vehicle.yaw) ? data.vehicle.yaw : 0;
     const savedFleet=data.vehicleFleet||{};motorcycleOwned=!!savedFleet.motorcycleOwned;selectedVehicleType=savedFleet.selected==='motorcycle'&&motorcycleOwned?'motorcycle':'suv';
     vehicleCarModel.visible=selectedVehicleType==='suv';vehicleMotorcycleModel.visible=selectedVehicleType==='motorcycle';motorcycleRider.visible=false;
     for(const type of ['suv','motorcycle']){const saved=savedFleet.telemetry?.[type]||{};vehicleFleetTelemetry[type]={fuel:clamp(Number(saved.fuel??100),0,100),dirt:clamp(Number(saved.dirt??0),0,100),tripDistance:clamp(Number(saved.tripDistance)||0,0,99999)};}
@@ -5554,15 +5631,21 @@ function loadGame(notify = true) {
     vehicleWashTimer = 0;
     vehicleFuelEmptyNotified = vehicleFuel <= 0.01; vehicleLowFuelNotified = vehicleFuel > 0.01 && vehicleFuel < 18;
     vehicleSpeed = 0; vehicleBrakeHeld = false;
-    gameMinutes = data.gameMinutes ?? 540;
+    gameMinutes = Number.isFinite(data.gameMinutes) ? ((data.gameMinutes % 1440) + 1440) % 1440 : 540;
+    lastClockMinute = -1;
     cameraYaw = Number.isFinite(data.cameraYaw) ? data.cameraYaw : 0;
     cameraYawTarget = cameraYaw;
+    cameraPitch = cameraPitchTarget = 0.24;
+    cameraDistance = cameraDistanceTarget = 8.8;
+    cameraOcclusionTimer = 0;
+    cameraObstructed = false;
     Object.assign(objectiveState, data.objectives || {});
     doorOpen = !!data.states?.doorOpen;
     lightsOn = !!data.states?.lightsOn;
     tvOn = !!data.states?.tvOn;
     fridgeOpen = !!data.states?.fridgeOpen;
-    wallet = data.version >= 4 ? (data.wallet ?? 650) : 650;
+    const savedWallet = Number(data.wallet ?? 650);
+    wallet = data.version >= 4 && Number.isFinite(savedWallet) ? clamp(Math.floor(savedWallet),0,999999999) : 650;
     Object.assign(propertyUpgrades, { solar: 0, kitchen: 0, bedroom: 0, terrace: 0, studio: 0, guestSuite: 0 }, data.propertyUpgrades || {});
     for (const key of Object.keys(propertyUpgradeDefinitions)) propertyUpgrades[key] = clamp(Math.floor(Number(propertyUpgrades[key]) || 0), 0, propertyUpgradeDefinitions[key].levels.length);
     const savedRental=data.rental||{};
@@ -5590,7 +5673,8 @@ function loadGame(notify = true) {
     lifetimeIncome = Math.max(0, Math.floor(Number(data.lifetimeIncome) || 0));
     lifetimeSpending = Math.max(0, Math.floor(Number(data.lifetimeSpending) || 0));
     transactionHistory.splice(0, transactionHistory.length, ...(Array.isArray(data.transactionHistory) ? data.transactionHistory.filter(entry => entry && Number.isFinite(entry.amount)).slice(0,12).map(entry => ({ label: String(entry.label || 'Transaction').slice(0,64), amount: Math.trunc(entry.amount), day: Math.max(1,Math.floor(entry.day||1)), time: /^\d{2}:\d{2}$/.test(entry.time||'') ? entry.time : '00:00' })) : []));
-    Object.assign(inventory, { houseKey: 1, phone: 1, parcel: 0, plant: 0, floorLamp: 0, bookshelf: 0, sideTable: 0, areaRug: 0, bouquet: 0, coffee: 0, sandwich: 0, apple: 0, water: 0, pastry: 0, fishSardine: 0, fishBass: 0, fishGolden: 0, seedTomato:0, seedCarrot:0, seedStrawberry:0, harvestTomato:0, harvestCarrot:0, harvestStrawberry:0, tomatoPreserve:0, carrotJuice:0, strawberryJam:0 }, data.inventory || {});
+    Object.assign(inventory, { houseKey: 1, phone: 1, parcel: 0, plant: 0, floorLamp: 0, bookshelf: 0, sideTable: 0, areaRug: 0, bouquet: 0, coffee: 0, sandwich: 0, apple: 0, water: 0, pastry: 0, fishSardine: 0, fishBass: 0, fishGolden: 0, seedTomato:0, seedCarrot:0, seedStrawberry:0, harvestTomato:0, harvestCarrot:0, harvestStrawberry:0, tomatoPreserve:0, carrotJuice:0, strawberryJam:0 }, data.inventory && typeof data.inventory === 'object' ? data.inventory : {});
+    for (const key of Object.keys(inventory)) inventory[key] = clamp(Math.floor(Number(inventory[key]) || 0),0,999999);
     const savedWorkshop=data.farmWorkshop||{};
     farmWorkshopState.built=!!savedWorkshop.built;
     farmWorkshopState.activeBatch=savedWorkshop.activeBatch&&farmRecipeDefinitions[savedWorkshop.activeBatch.recipe]&&Number.isFinite(Number(savedWorkshop.activeBatch.readyAt))?{recipe:savedWorkshop.activeBatch.recipe,startedAt:clamp(Number(savedWorkshop.activeBatch.startedAt)||0,0,999999999),readyAt:clamp(Number(savedWorkshop.activeBatch.readyAt)||0,0,999999999)}:null;
@@ -5603,16 +5687,20 @@ function loadGame(notify = true) {
     shoalChest.visible=!townVisited.northShoalTreasure;
     syncCourierHandheld();
     Object.assign(decorPlaced, { plant: false, floorLamp: false, bookshelf: false, sideTable: false, areaRug: false }, data.decorPlaced || {});
-    decorPositions.splice(0,decorPositions.length,...(Array.isArray(data.decorPositions) ? data.decorPositions.filter(item => decorCatalog[item.item] && [item.x,item.y,item.z].every(Number.isFinite)).map(item => ({ id: Number(item.id)||0, item: item.item, x: item.x, y: item.y, z: item.z, yaw: Number(item.yaw)||0 })) : []));
+    decorPositions.splice(0,decorPositions.length,...(Array.isArray(data.decorPositions) ? data.decorPositions.filter(item => item && decorCatalog[item.item] && [item.x,item.y,item.z].every(Number.isFinite)).map(item => ({ id: Number(item.id)||0, item: item.item, x: item.x, y: item.y, z: item.z, yaw: Number(item.yaw)||0 })) : []));
     if (!Array.isArray(data.decorPositions)) {
       if (data.decorPlaced?.plant) decorPositions.push({ id: 1, item: 'plant', x: 6.2, y: 0.22, z: -4.4, yaw: 0 });
       if (data.decorPlaced?.floorLamp) decorPositions.push({ id: 2, item: 'floorLamp', x: -5.7, y: 0.22, z: -4.9, yaw: 0 });
     }
     decorInstanceId = decorPositions.reduce((max,item) => Math.max(max,Number(item.id)||0),0);
-    jobPhase = data.jobPhase || 'idle'; jobCollected = data.jobCollected || [false,false,false]; jobsCompleted = data.jobsCompleted || 0;
-    outfitKey = data.outfitKey || 'forest'; shirtMat.color.setHex(outfitColors[outfitKey] || outfitColors.forest);
-    Object.assign(needs, { hunger: 100, energy: 100, social: 50, hygiene: 100, bladder: 100 }, data.needs || {});
-    Object.assign(relationships, { alex: 12, mia: 12 }, data.relationships || {});
+    jobPhase = ['idle','collect','deliver','complete'].includes(data.jobPhase) ? data.jobPhase : 'idle';
+    jobCollected = Array.isArray(data.jobCollected) && data.jobCollected.length === 3 ? data.jobCollected.map(Boolean) : [false,false,false];
+    jobsCompleted = clamp(Math.floor(Number(data.jobsCompleted) || 0),0,9999999);
+    outfitKey = Object.hasOwn(outfitColors,data.outfitKey) ? data.outfitKey : 'forest'; shirtMat.color.setHex(outfitColors[outfitKey]);
+    Object.assign(needs, { hunger: 100, energy: 100, social: 50, hygiene: 100, bladder: 100 }, data.needs && typeof data.needs === 'object' ? data.needs : {});
+    for (const key of Object.keys(needs)) needs[key] = clamp(Number(needs[key]) || 0,0,100);
+    Object.assign(relationships, { alex: 12, mia: 12 }, data.relationships && typeof data.relationships === 'object' ? data.relationships : {});
+    for (const key of Object.keys(relationships)) relationships[key] = clamp(Number(relationships[key]) || 0,0,100);
     Object.assign(skills, { cooking: 0, gardening: 0, social: 0, delivery: 0, career: 0, fishing: 0, sailing: 0, diving: 0 }, data.skills || {});
     for (const key of Object.keys(skills)) skills[key] = clamp(Number(skills[key]) || 0, 0, 2700);
     gardenJobPhase = data.gardenJobPhase || 'idle';
@@ -5623,7 +5711,8 @@ function loadGame(notify = true) {
       autoSaveEnabled = data.settings.autoSaveEnabled;
       try { localStorage.setItem('estate-auto-save', String(autoSaveEnabled)); } catch {}
     }
-    gameDay = Math.max(1, data.gameDay || 1);
+    const savedGameDay = Number(data.gameDay ?? 1);
+    gameDay = Number.isFinite(savedGameDay) ? clamp(Math.floor(savedGameDay),1,9999999) : 1;
     const savedExpress=data.cityExpress||{};
     courierNetworkState.day=Math.max(1,Math.floor(Number(savedExpress.day)||gameDay));
     courierNetworkState.phase=savedExpress.phase==='enroute'&&Number.isInteger(savedExpress.routeIndex)&&courierNetworkRoutes[savedExpress.routeIndex]?'enroute':'idle';
@@ -5690,8 +5779,10 @@ function loadGame(notify = true) {
       dailyTaskProgress[id] = clamp(Number(dailyTaskProgress[id]) || 0, 0, dailyTaskDefinitions[id].goal);
       dailyTaskClaimed[id] = !!dailyTaskClaimed[id];
     }
-    lastBilledDay = Math.max(1, data.lastBilledDay ?? gameDay);
-    unpaidBills = Math.max(0, data.unpaidBills || 0); billsPaid = Math.max(0, data.billsPaid || 0);
+    const savedLastBilledDay = Number(data.lastBilledDay ?? gameDay);
+    lastBilledDay = Number.isFinite(savedLastBilledDay) ? clamp(Math.floor(savedLastBilledDay),1,gameDay) : gameDay;
+    unpaidBills = clamp(Math.floor(Number(data.unpaidBills) || 0),0,999999999);
+    billsPaid = clamp(Math.floor(Number(data.billsPaid) || 0),0,999999999);
     updateNeedsHud(true); renderSkills(); renderCareerPanel();
     inVehicle = false; vehicleSpeed = 0; player.visible = true;
     parcelObjects.forEach(parcel => { parcel.group.visible = jobPhase === 'collect' && !jobCollected[parcel.index]; });
@@ -5700,6 +5791,16 @@ function loadGame(notify = true) {
     restoreWorldDrops(data.worldDrops);
     if (data.heldObject && heldProps[data.heldObject.item] && data.heldObject.item !== 'parcel') setHandheldObject(data.heldObject.item, data.heldObject.count, true);
     setWallet(wallet); renderInventory(); renderShop(); updateJobHud(); updateNeedsHud(true); updateHouseholdPanel(); updateSettingsPanel(); renderWorkFinancePanel(); renderPropertyPanel(); renderCourierNetworkHud(true); closePanels();
+    updateDiveHud();
+    updateBoatHud();
+    updateVehicleHud(false);
+    interaction.classList.add('hidden');
+    interactButton.classList.add('hidden');
+    seatActivityButton.classList.add('hidden');
+    followButton.classList.add('hidden');
+    lastClockMinute = -1;
+    lastRuntimeUiState = '';
+    lastFollowButtonState = '';
     const completed = Object.values(objectiveState).filter(Boolean).length;
     document.querySelector('#tour-count').textContent = String(completed).padStart(2,'0') + ' / 04';
     document.querySelector('#tour-progress').style.width = (completed/4*100) + '%';

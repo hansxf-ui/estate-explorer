@@ -1,3 +1,15 @@
+## Prototype 40.17 — Full Gameplay Audit
+- Fixed seat exit collision probing: the old code tested the candidate X against the seat's Z instead of testing the candidate X/Z pair. Seat exit now checks the intended forward point, tries the other sides and searches a wider ring before refusing to stand.
+- Hardened LOAD as a gameplay-state boundary. It now validates the save envelope first, cancels temporary placement/fishing states, clears touch/keyboard momentum, NPC social moments, gestures, diving/driving/boating modes and restores the camera and contextual HUDs cleanly. V18 and V3–V17 migration remain supported.
+- Wrapped local save writes so browser storage failures do not escape into the game loop. Save export/import now checks that the current or imported save was actually persisted.
+- Blocked furniture placement while seated, driving, boating or diving, where the player's visible position and stored ground position are not valid placement origins.
+- Restricted in-car interactions to the vehicle controls, refuelling and car wash; drivers can no longer accidentally talk to nearby NPCs or open foot-only shops through the generic E interaction. Vehicle and seat exits now search multiple collision-free sides, avoid occupied NPC positions and keep the player in place when no safe exit exists.
+- Fixed a daily-limit edge case: a long hangout that crosses midnight now claims the new day's NPC slot after the time jump, so the same resident cannot be booked twice on the new day.
+- Normalized nested save values (wallet, day, inventory, needs, relationships, job flags, outfit, bills and decoration rows) so malformed values cannot silently poison the active session.
+- Added behavioural regression checks for seat/vehicle exit geometry, save-envelope validation, load-state cleanup, save/import failures, daily-limit rollover and mode-locked interactions.
+- 32 automated integration suites (428 checks) pass, including new behavioural regression tests; the production build succeeds. DOM audit found 202 unique HTML IDs and no missing static selector targets.
+- A real WebGL/iPad play-through is still required for visual and touch-only issues; this development browser cannot create a WebGL context.
+
 ## Prototype 40.16 — Mobile Controls & Camera Input Fix
 - Corrected the camera-relative movement basis: screen-right now maps to the actual camera-right world vector at every orbit angle. The same helper is shared by walking, swimming and NPC follow steering.
 - Added a radial joystick deadzone and remapping to eliminate tiny accidental movement while retaining full travel at the edge of the stick.

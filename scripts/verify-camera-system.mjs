@@ -73,7 +73,7 @@ check('Camera yaw target is saved and restored while the established V12 save sc
   assert.match(source, /gameMinutes, cameraYaw: cameraYawTarget, objectives: objectiveState/);
   assert.match(source, /cameraYawTarget = cameraYaw/);
   assert.match(source, /version: 18/);
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
 });
 check('Runtime diagnostics expose camera orbit, zoom, obstruction and FOV state', () => {
   assert.match(source, /camera: \{ yaw: cameraYaw, yawTarget: cameraYawTarget/);
@@ -86,13 +86,13 @@ check('Mobile reset control and desktop camera guidance are responsive', () => {
   assert.match(css, /@media \(pointer:coarse\),\(max-width:700px\)/);
 });
 check('Prototype 39 release metadata is synchronized across app, package and release notes', () => {
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:camera/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

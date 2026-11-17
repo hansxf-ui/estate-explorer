@@ -28,7 +28,7 @@ check('Courier stack visuals display one, two or three parcels based on actual i
 });
 check('Persistent courier parcels synchronize from inventory and restore after save loading', () => {
   assert.match(source, /function syncCourierHandheld\(\)[\s\S]*?inventory\.parcel[\s\S]*?setHandheldObject\('parcel', count, true\)/);
-  assert.match(source, /Object\.assign\(inventory,[\s\S]*?data\.inventory \|\| \{\}\);[\s\S]*?syncCourierHandheld\(\)/);
+  assert.match(source, /Object\.assign\(inventory,[\s\S]*?data\.inventory && typeof data\.inventory === 'object' \? data\.inventory : \{\}\);[\s\S]*?syncCourierHandheld\(\)/);
   assert.match(source, /const carryingParcel = handheldState\.item === 'parcel' && handheldState\.persistent/);
   assert.match(source, /if \(carryingParcel\) \{[\s\S]*?armL\.rotation\.x = THREE\.MathUtils\.damp\(armL\.rotation\.x, 0\.46/);
 });
@@ -99,7 +99,8 @@ check('Seated/standing transitions clear transient props, then restore any still
   const standStart = source.indexOf('function standFromSeat(');
   const standEnd = source.indexOf('\nfunction playPlayerGesture', standStart);
   assert.match(source.slice(sitStart,sitEnd), /clearHandheldObject\(\)/);
-  assert.match(source.slice(standStart,standEnd), /clearHandheldObject\(\)/);
+  assert.match(source.slice(standStart,standEnd), /resetPlayerRigPose\(seat\.yaw\)/);
+  assert.match(source,/function resetPlayerRigPose\(yaw = 0\)[\s\S]*?clearHandheldObject\(\)/);
   assert.match(source.slice(standStart,standEnd), /syncCourierHandheld\(\)/);
 });
 check('A fresh save load clears stale temporary props before restoring the courier parcel inventory', () => {
@@ -115,14 +116,14 @@ check('Runtime diagnostics show the item type, count, persistence and individual
 });
 check('V18 save schema supports carried props and Prototype 39 metadata is synchronized', () => {
   assert.match(source, /version: 18/);
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
-  assert.equal(pkg.version, '0.40.16');
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:objects/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

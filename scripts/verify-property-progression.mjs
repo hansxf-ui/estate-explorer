@@ -52,7 +52,7 @@ check('Renovation visuals are rebuilt on save load and never duplicate',()=>{
 check('Renovation tiers persist as optional V12 fields and legacy saves remain supported',()=>{
   assert.match(source,/wallet, propertyUpgrades, lifetimeIncome/);
   assert.match(source,/Object\.assign\(propertyUpgrades, \{ solar: 0, kitchen: 0, bedroom: 0, terrace: 0, studio: 0, guestSuite: 0 \}, data\.propertyUpgrades \|\| \{\}\)/);
-  assert.match(source,/version: 18/);assert.match(source,/\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
+  assert.match(source,/version: 18/);assert.match(source,/isValidSaveEnvelope\(data\)/);
   assert.ok(source.includes('property: { upgrades: { ...propertyUpgrades }, dailyBill: propertyDailyBill(),'));
   assert.match(source,/visibleRenovations: Object\.keys\(propertyUpgradeObjects\)/);
   assert.match(source,/terraceSeatsUnlocked: propertyUpgrades\.terrace > 0/);
@@ -61,9 +61,9 @@ check('Property renovation cards are responsive and show level and affordability
   assert.match(css,/\.property-upgrade-card/);assert.match(css,/\.property-upgrade-buy:disabled/);
   assert.match(css,/@media\(max-width:700px\)[\s\S]*?\.property-panel/);
 });
-check('Version 0.40.16 metadata and release notes are aligned',()=>{
-  assert.equal(pkg.version,'0.40.16');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
-  assert.match(html,/Prototype 40/);assert.ok(html.includes('BUILD 0.40.16'));
+check('Version 0.40.17 metadata and release notes are aligned',()=>{
+  assert.equal(pkg.version,'0.40.17');assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+  assert.match(html,/Prototype 40/);assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme,/Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 console.log(`\n${passed} property progression integration checks passed.`);

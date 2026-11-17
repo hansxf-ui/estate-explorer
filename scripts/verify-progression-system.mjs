@@ -58,7 +58,7 @@ check('Daily tasks rotate when game day changes and restore after save loading',
   assert.match(source, /Object\.assign\(dailyTaskProgress, data\.dailyTaskProgress \|\| \{\}\)/);
   assert.match(source, /Object\.assign\(dailyTaskClaimed, data\.dailyTaskClaimed \|\| \{\}\)/);
   assert.match(source, /version: 18/);
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
   assert.match(source, /dailyTasks: \{ day: dailyTaskDay, active: activeDailyTaskIds\(\)\.map/);
 });
 check('Daily Planner has responsive progress cards and claim states', () => {
@@ -67,14 +67,14 @@ check('Daily Planner has responsive progress cards and claim states', () => {
   assert.match(css, /\.daily-task-claim:not\(:disabled\)/);
   assert.match(css, /@media\(max-width:700px\)[\s\S]*?\.daily-tasks-panel/);
 });
-check('Version 0.40.16 and Prototype 39 release metadata is consistent', () => {
+check('Version 0.40.17 and Prototype 39 release metadata is consistent', () => {
   const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const lock = JSON.parse(fs.readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
 });
 

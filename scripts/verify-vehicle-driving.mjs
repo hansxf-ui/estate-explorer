@@ -99,18 +99,19 @@ check('Driving mode hides character-only jump/run buttons and swaps the desktop 
 });
 check('Player cannot enter the SUV while carrying an object and exits beside the vehicle where possible', () => {
   assert.match(source, /if \(!inVehicle && handheldState\.item\) \{ showToast\('SIMPAN BARANG YANG SEDANG DIBAWA SEBELUM MENYETIR'\)/);
-  assert.match(source, /const exitOffset=selectedVehicleType==='motorcycle'\?1\.65:2\.45;[\s\S]*?const sideX = Math\.cos\(vehicle\.rotation\.y\) \* exitOffset/);
-  assert.match(source, /if \(collides\(exitX, exitZ\)\)/);
+  assert.match(source, /const exitOffset=selectedVehicleType==='motorcycle'\?1\.65:2\.45;[\s\S]*?findSafeSeatExit\(\{ x:vehicle\.position\.x, z:vehicle\.position\.z, yaw:Math\.PI\/2-vehicle\.rotation\.y \}, isPlayerExitBlocked, exitOffset\)/);
+  assert.match(source, /findSafeSeatExit\(\{ x:vehicle\.position\.x, z:vehicle\.position\.z, yaw:Math\.PI\/2-vehicle\.rotation\.y \}, isPlayerExitBlocked, exitOffset\)/);
+  assert.match(source, /AREA KELUAR KENDARAAN TERHALANG/);
   assert.match(source, /vehicleSpeed = 0; vehicleBrakeHeld = false/);
 });
 check('V18 saves preserve the SUV position, lights, trip counter, fuel and body dirt', () => {
   assert.match(source, /version: 18,[\s\S]*?vehicleSettings: \{ lightsMode: vehicleLightsMode, tripDistance: vehicleTripDistance, fuel: vehicleFuel, dirt: vehicleDirt \}/);
   assert.match(source, /vehicleLightsMode = \['auto','on','off'\]\.includes\(data\.vehicleSettings\?\.lightsMode\) \? data\.vehicleSettings\.lightsMode : 'auto'/);
   assert.match(source, /vehicleTripDistance = clamp\(Number\(data\.vehicleSettings\?\.tripDistance\) \|\| 0, 0, 99999\)/);
-  assert.ok(source.includes('![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version)'));
+  assert.ok(source.includes('isValidSaveEnvelope(data)'));
 });
 check('V3–V17 legacy saves and imported backups remain compatible with V18 migration defaults', () => {
-  assert.ok(source.includes('![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version) || !data.player'));
+  assert.ok(source.includes('isValidSaveEnvelope(data)'));
   assert.match(source, /vehicleLightsMode = \['auto','on','off'\]\.includes\(data\.vehicleSettings\?\.lightsMode\) \? data\.vehicleSettings\.lightsMode : 'auto'/);
   assert.match(source, /vehicleTripDistance = clamp\(Number\(data\.vehicleSettings\?\.tripDistance\) \|\| 0, 0, 99999\)/);
 });
@@ -125,12 +126,12 @@ check('Runtime diagnostics expose vehicle speed, lights, mileage, steering, brak
   assert.match(source, /brakeLightIntensity: vehicleBrakeMat\.emissiveIntensity, bodyPitch: vehicleBody\.rotation\.x, bodyRoll: vehicleBody\.rotation\.z/);
 });
 check('Prototype 39 release metadata, package lock, UI and V18 migration are synchronized', () => {
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:vehicle/);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 37 — Neighborhood Expansion & Local Commerce/);
   assert.match(readme, /AUTO \/ ON \/ OFF/);
 });

@@ -56,7 +56,7 @@ check('Coffee is only consumed after confirming inventory availability', () => {
 });
 check('Home activity progress remains compatible with V18 saves and legacy migration range', () => {
   assert.match(source, /version: 18/);
-  assert.match(source, /\[3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\]/);
+  assert.match(source, /isValidSaveEnvelope\(data\)/);
   assert.match(source, /skills, careerWorkDay/);
   assert.match(source, /decorPositions, worldDrops: worldDrops.map/);
 });
@@ -67,13 +67,13 @@ check('Shop copy explains that the bookshelf is now usable, and controls describ
   assert.match(readme, /Functional Home Activities & Reading/);
 });
 check('Prototype 39 metadata is consistent across the app and npm package', () => {
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(pkg.scripts['test:game'], /test:home/);
   assert.match(html, /Prototype 40/);
   assert.match(html, /PROTOTYPE 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(css, /@media\(max-width:700px\)/);
 });
 

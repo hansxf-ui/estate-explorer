@@ -86,7 +86,7 @@ check('Active hangouts persist their route and pending reward in V18 saves', () 
 
 check('Legacy V3–V17 saves and V18 imports remain accepted', () => {
   assert.match(source, /version: 18/);
-  assert.ok(source.includes('![3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(data.version)'));
+  assert.ok(source.includes('isValidSaveEnvelope(data)'));
   assert.match(source, /data\.version >= 16 \? data\.hangoutSession : null/);
 });
 
@@ -136,11 +136,11 @@ check('Debug snapshot exposes relationship gates and hangout progress', () => {
 });
 
 check('Prototype 39 app, npm package, lockfile and release notes are synchronized', () => {
-  assert.equal(pkg.version, '0.40.16');
+  assert.equal(pkg.version, '0.40.17');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.match(html, /Prototype 40/);
-  assert.ok(html.includes('BUILD 0.40.16'));
+  assert.ok(html.includes('BUILD 0.40.17'));
   assert.match(readme, /Prototype 39 — Relationship-Driven Hangout Sessions/);
   assert.match(pkg.scripts['test:game'], /test:npc/);
 });
